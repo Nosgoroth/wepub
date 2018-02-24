@@ -1,8 +1,15 @@
 
-#Rename to kindleconfig.py
+#Rename this file to kindleconfig.py
 
-kindle_from = "" #Your Kindle email address
-kindle_to = "???@kindle.com" #The email address of your target Kindle
+#Your Kindle email address. Amazon will only accept emails originating
+# from one of your approved email addresses.
+kindle_from = "" 
+#The email address of your target Kindle. That device will automatically download
+# the book, but it will also be stored in your Kindle personal documents,
+# and you can access it from any of your devices.
+# If you send a book multiple times, you'll have duplicates! Go to
+# amazon.com > "Your content and devices" to delete those dupes.
+kindle_to = "???@kindle.com" 
 
 #If you don't want to use Gmail to send mail, edit the code in sendtokindle.py
 

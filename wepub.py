@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, importlib
+try:
+    import jstyleson as json
+except:
+    import json
 from optparse import OptionParser
 
 from wepubutils import *
@@ -28,29 +32,49 @@ def main():
 
     (options, args) = parser.parse_args()
 
+    print
+
     if len(args) < 1:
         print "Please specify a config file name"
         sys.exit()
 
     options.config = args[0]
 
-    try:
-        moduleconfig = importlib.import_module("configs."+options.config)
-    except ImportError:
-        print "Invalid config:", options.config
-        sys.exit()
-    except SyntaxError:
-        print
-        print "Syntax error in config", options.config
-        print
-        raise
+    wepubdlpath = os.path.join("configs", "%s.wepubdl" % options.config)
+    if os.path.exists(wepubdlpath):
+        print "Using config file", "%s.wepubdl" % options.config
 
-    for k in [item for item in dir(moduleconfig) if not item.startswith("__")]:
-        v = moduleconfig.__dict__[k]
-        #print k, "=", v
-        setattr(options, k, v)
+        try:
+            with open(wepubdlpath) as f:
+                wepubconfig = json.load(f)
+        except IOError:
+            print "No such config:", options.config
+            sys.exit()
+        except ValueError as ex:
+            print
+            print "Syntax error in config", options.config
+            print "(Make sure it conforms to strict JSON, not just JS)"
+            print
+            print ex
+            sys.exit()
 
-    print
+        for k in wepubconfig:
+            setattr(options, k, wepubconfig[k])
+    else:
+        print "Using config file", "%s.py" % options.config
+        try:
+            moduleconfig = importlib.import_module("configs."+options.config)
+        except ImportError:
+            print "No such config:", options.config
+            sys.exit()
+        except SyntaxError:
+            print
+            print "Syntax error in config", options.config
+            print
+            raise
+
+        for k in [item for item in dir(moduleconfig) if not item.startswith("__")]:
+            setattr(options, k, moduleconfig.__dict__[k])
 
     try: x = options.title_as_header
     except: setattr(options, "title_as_header", True)

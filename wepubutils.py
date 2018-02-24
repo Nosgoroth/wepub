@@ -3,7 +3,10 @@
 import os, sys, re, time, mimetypes, urlparse, zipfile, cgi, hashlib
 # Third party modules
 import requests
-from readability.readability import Document
+try:
+	from readability.readability import Document
+except:
+	from readability import Document
 from BeautifulSoup import BeautifulSoup,Tag
 # App modules
 import wepubtemplates
@@ -308,17 +311,15 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 
 		for (rx, to) in transforms:
 			try:
-				rdbhtml = re.sub(rx, to, rdbhtml)
+				rdbhtml = re.sub(rx.encode('utf-8'), to.encode('utf-8'), rdbhtml)
 			except:
 				print "   ", "Error with transform", rx, to
-				pass
 
 		for (rx, to) in titleTransforms:
 			try:
-				rdbtitle = re.sub(rx, to, rdbtitle)
+				rdbtitle = re.sub(rx.encode('utf-8'), to.encode('utf-8'), rdbtitle)
 			except:
 				print "   ", "Error with transform", rx, to
-				pass
 
 		with open(rdbcachefile, 'w') as f: f.write(rdbhtml)
 		with open(rdbtcachefile, 'w') as f: f.write(rdbtitle)
