@@ -13,6 +13,8 @@ Heavily based on [web2epub](https://github.com/rupeshk/web2epub) by **rupeshk**,
 * Convert to mobi via Calibre
 * Send to Kindle via email
 
+Please do contribute!
+
 ## Prerequisites
 
 This script works with Python 2.7.x.
@@ -28,7 +30,7 @@ This script works with Python 2.7.x.
 
 Although it's optional, you may want to install Calibre and [make its CLI binaries available in the path](https://manual.calibre-ebook.com/generated/en/cli-index.html).
 
-Calibre's `ebook-convert`, `ebook-viewer` and `ebook-polish` will be used to enable the functionality of  `--mobi`, `--polish`, `--open` or `--kindle`.
+Calibre's `ebook-convert`, `ebook-viewer` and `ebook-polish` will be used to enable the functionality of  `--mobi`, `--polish`, `--open` and `--kindle`.
 
 You can still create epubs without it.
 
@@ -45,7 +47,7 @@ So, you have a bunch of URLs, maybe chapters in a web novel, that you'd like to 
 
 It should look like this for `.wepubdl` configs:
 
-```json
+```js
 {
     "title": "My test ebook",
     "author": "Various Wikipedia collaborators",
@@ -124,7 +126,7 @@ urls = [
 
 Note that in `.wepubdl` configs, which are JSON files, you can't use multiline strings:
 
-```json
+```js
 "urls": [
     "<title>A leading test image</title><p><img src=\"https://i.imgur.com/ciWcTlk.jpg\" /></p><p>What did you expect?</p>'",
     "https://en.wikipedia.org/wiki/E-book",
@@ -154,9 +156,15 @@ You can also set these switches as variables in your config:
 
 ## Sending to Kindle
 
+Directly send to Kindle with this script.
+
+### Credentials
+
 Create a `kindleconfig.py` file. You can just rename the `kindleconfig_example.py` file provided. Fill it with your credentials and email addresses as specified.
 
 If you want to use a different SMTP server that's not Gmail, you'll have to code it in `sendtokindle.py`.
+
+### Usage
 
 You can send to Kindle by using the `--kindle` switch in `wepub.py`:
 
