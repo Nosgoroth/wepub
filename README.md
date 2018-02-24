@@ -26,17 +26,21 @@ This script works with Python 2.7.x.
 * [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/#Download)
 * [jstyleson](https://github.com/linjackson78/jstyleson) -- optional, will fallback to built-in `json`, but it's nice to be able to use comments
 
+```bash
+pip install readability-lxml requests beautifulsoup4 jstyleson
+```
+
 ### External binaries
 
 Although it's optional, you may want to install Calibre and [make its CLI binaries available in the path](https://manual.calibre-ebook.com/generated/en/cli-index.html).
 
-Calibre's `ebook-convert`, `ebook-viewer` and `ebook-polish` will be used to enable the functionality of  `--mobi`, `--polish`, `--open` and `--kindle`.
-
-You can still create epubs without it.
+Calibre's `ebook-convert`, `ebook-viewer` and `ebook-polish` will be used to enable the functionality of  `--mobi`, `--polish`, `--open` and `--kindle`. You can still create epubs without it.
 
 ## Making an ebook
 
 So, you have a bunch of URLs, maybe chapters in a web novel, that you'd like to convert to epub to, for example, read in your e-reader. Let's do it!
+
+### Create a config
 
 1. Create a config `.wepubdl` (JSON) or `.py` (Python module) file in the `configs` folder, named as you like. You can copy the provided `example.py` or `example.wepubdl`. If distributing configs, it's safer to stick to the `.wepubdl` ones.
 2. Set at least `title`, `author` and `outfile`. The path for `outfile` is relative to the root of the project, not the config file.
@@ -97,15 +101,8 @@ titlefilters = [
 ]
 ```
 
-You can now run this config, which we'll imagine you named `myconfig.wepubdl` or `myconfig.py`, by going down to the root folder of the project and running:
 
-```bash
-python wepub.py myconfig
-```
-
-If both a `.wepubdl` config and an `.py` config exist, the `.wepubdl` config will be used.
-
-### Static chapters
+#### Static chapters
 
 You can add static chapters by including HTML as a string in the `urls` array. You can define the chapter title by including a `<title>` element somewhere within the string.
 
@@ -135,7 +132,18 @@ Note that in `.wepubdl` configs, which are JSON files, you can't use multiline s
 ],
 ```
 
-### Extra options
+### Run it
+
+You can now run this config, which we'll imagine you named `myconfig.wepubdl` or `myconfig.py`, by going down to the root folder of the project and running:
+
+```bash
+python wepub.py myconfig
+```
+
+If both a `.wepubdl` config and an `.py` config exist, the `.wepubdl` config will be used.
+
+
+#### Extra options
 
 There are options that you can consult with `--help`, and they include these:
 
@@ -154,7 +162,7 @@ You can also set these switches as variables in your config:
 * `mobi` for `--mobi`
 * `sendtokindle` for `--kindle`
 
-## Sending to Kindle
+## Send to Kindle
 
 Directly send to Kindle with this script.
 
