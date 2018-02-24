@@ -7,4 +7,5 @@ out/
 configs/*
 !configs/__init__.py
 !configs/example.py
+!configs/example.wepubdl
 
