@@ -20,7 +20,7 @@ Heavily based on [web2epub](https://github.com/rupeshk/web2epub) by **rupeshk**,
 
 1. Create a config `.py` file in the configs folder, named as you like. You can copy the provided `example.py`.
 2. Set at least the `title`, `author`, `outfile` and `urls` variables. Each URL will become a chapter. The path for `outfile` is relative to the root of the project, not the config file.
-3. If you have a cover image, set the `cover` variable to the relative path of the image.
+3. If you have a cover image, set the `cover` variable to the relative path of the image, or an URL.
 4. Consider adding filters to the body (`filters`) and the title (`titlefilters`). These are tuples where the first and second elements will be passed as parameters to `re.sub`
 5. You can decide if you want to add the page title as a header for the chapter by setting `title_as_header`. It defaults to `True`.
 
@@ -32,7 +32,7 @@ python wepub.py myconfig
 
 There are options that you can consult with `--help`, and they include these:
 
-* `--redownload`: Ignores all the cache
+* `--redownload`: Ignores all the cache (documents and images)
 * `--reprocess`: Respects the download cache but reprocesses the readability and filter passes. If you don't use it you can modify the cache files manually.
 * `--preview`: Prints to stdout the processed contents of first URL and exits.
 * `--mobi`: Converts the result to mobi.
@@ -62,5 +62,4 @@ If it's not a mobi file the script will attempt to convert it. You can use this 
 
 ## Known snags
 
-* Images aren't cached yet.
 * `ebook-polish` doesn't handle file names properly.
