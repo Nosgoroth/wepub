@@ -31,6 +31,39 @@ class MyZipFile(zipfile.ZipFile):
 
 class RetrieveUrlException(Exception): pass
 
+
+
+def processImage(urlOrPath, ignoreCache=False, extension=None): #extension with a dot
+    if not urlOrPath: return None
+    if not urlOrPath.startswith("http"): return urlOrPath
+
+    if not os.path.isdir("cache"): os.mkdir("cache")
+
+    hashid = hashlib.sha1(urlOrPath).hexdigest()
+    if not extension:
+        path = urlparse.urlparse(urlOrPath).path
+        extension = os.path.splitext(path)[1]
+    cachefile = os.path.join("cache", hashid+"_img"+extension)
+
+    if os.path.exists(cachefile):
+        return cachefile
+    else:
+        try:
+            r = requests.get(urlOrPath)
+            with open(cachefile, 'wb') as f:
+                f.write(r.content)
+            return cachefile
+        except KeyboardInterrupt:
+            raise
+        except:
+            print "Download error"
+            return None
+
+
+
+
+
+
 def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignoreReadability=False, versionId=None):
 
     hashsrc = url + (("&v="+str(versionId)) if versionId else "")
@@ -174,11 +207,18 @@ def main():
         print "Readability cache will be ignored!"
 
     nos = len(options.urls)
-    cpath = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='
-    ctype = 'image/gif'
-    if cover is not None:
+
+    print "Processing cover...",
+    sys.stdout.flush()
+    cover = processImage(cover, ignoreCache=options.nocache)
+    print "done"
+
+    if cover:
         cpath = 'images/cover' + os.path.splitext(os.path.abspath(cover))[1]
         ctype = mimetypes.guess_type(os.path.basename(os.path.abspath(cover)))[0]
+    else:
+        cpath = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='
+        ctype = 'image/gif'
 
     epub = MyZipFile(options.outfile, 'w', zipfile.ZIP_DEFLATED)
 
@@ -373,13 +413,30 @@ def main():
             imgfullpath = urlparse.urljoin(url, image["src"])
             #Remove query strings from url
             imgpath = urlparse.urlunsplit(urlparse.urlsplit(imgfullpath)[:3]+('','',))
-            print "    Downloading image: %s %s" % (j+1, imgpath)
             imgfile = os.path.basename(imgpath)
             filename = 'article_%s_image_%s%s' % (i+1,j+1,os.path.splitext(imgfile)[1])
-            if imgpath.lower().startswith("http"):
-                epub.writestr('OEBPS/images/'+filename, urllib.urlopen(imgpath).read())
+
+            print "    Processing image: %s %s" % (j+1, imgpath),
+            sys.stdout.flush()
+
+            filepath = processImage(imgpath, ignoreCache=options.nocache)
+            if filepath:
+                print "done"
+
+                with open(filepath) as f: epub.writestr('OEBPS/images/'+filename, f.read())
+                
                 image['src'] = 'images/'+filename
-                manifest += '<item id="article_%s_image_%s" href="images/%s" media-type="%s"/>\n' % (i+1,j+1,filename,mimetypes.guess_type(filename)[0])
+
+                manifest += '<item id="article_%s_image_%s" href="images/%s" media-type="%s"/>\n' % (i+1, j+1, filename,mimetypes.guess_type(filename)[0])
+            
+            else:
+                print "error"
+
+            
+            
+            #if imgpath.lower().startswith("http"):
+            #    epub.writestr('OEBPS/images/'+filename, urllib.urlopen(imgpath).read())
+            #    image['src'] = 'images/'+filename
 
         epub.writestr('OEBPS/article_%s.html' % (i+1), str(soup))
 
