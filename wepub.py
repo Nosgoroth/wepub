@@ -5,7 +5,7 @@ import os, sys, importlib
 from optparse import OptionParser
 
 from wepubutils import *
-from ebookconvert import convertToFormat, polishepub
+from ebookconvert import convertToFormat, polishepub, openInEbookViewer
 import sendtokindle
 
 
@@ -23,6 +23,7 @@ def main():
     parser.add_option("--polish", action="store_true", dest="polish", help="Polishes the resulting epub")
     parser.add_option("--mobi", action="store_true", dest="mobi", help="Convert to MOBI")
     parser.add_option("--kindle", action="store_true", dest="sendtokindle", help="Send to Kindle")
+    parser.add_option("--open", action="store_true", dest="open", help="Opens the resulting epub in Calibre's ebook-viewer")
     parser.add_option("-p", "--debug", "--preview", action="store_true", dest="preview", help="Print output of first url and exit")
 
     (options, args) = parser.parse_args()
@@ -73,6 +74,11 @@ def main():
 
     print
     print "Wrote epub!"
+
+    if options.open:
+        print
+        print "Opening epub..."
+        openInEbookViewer(options.outfile)
 
     if options.polish:
         print

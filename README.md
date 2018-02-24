@@ -13,7 +13,7 @@ Heavily based on [web2epub](https://github.com/rupeshk/web2epub) by **rupeshk**,
 
 * Python 2.7.x
 * Python packages: `readability`, `requests`, `BeautifulSoup`
-* External binaries: Calibre's `ebook-convert` and `ebook-polish`, in the path.
+* External binaries: Calibre's `ebook-convert`, `ebook-viewer` and `ebook-polish`, in the path. You can continue without this, but you won't be able to use `--mobi`, `--polish`, `--open` or `--kindle`.
 * Some patience if bugs crop up
 
 ## Downloading from the web
@@ -86,7 +86,8 @@ There are options that you can consult with `--help`, and they include these:
 
 * `--redownload`: Ignores all the cache (documents and images)
 * `--reprocess`: Respects the download cache but reprocesses the readability and filter passes. If you don't use it you can modify the cache files manually.
-* `--preview`: Prints to stdout the processed contents of first URL and exits.
+* `--preview`: Prints to stdout the processed contents of first chapter and exits.
+* `--open`: Opens the resulting epub in Calibre's `ebook-viewer`
 * `--mobi`: Converts the result to mobi.
 * `--kindle`: Sends the result to Kindle. See its section.
 
