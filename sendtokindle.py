@@ -8,6 +8,7 @@ from email import encoders
 from email.mime.multipart import MIMEMultipart
 from email.message import Message
 from email.mime.base import MIMEBase
+from optparse import OptionParser
 
 from ebookconvert import convertToFormat
 
