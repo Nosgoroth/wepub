@@ -10,24 +10,26 @@ from email.message import Message
 from email.mime.base import MIMEBase
 from optparse import OptionParser
 
-from ebookconvert import convertToFormat
+import ebookconvert
 
 
-def sendFromConfig(filepath):
+def sendFromConfig(filepath, extraConvertParams=None):
     import kindleconfig
     return send(
         filepath,
         fromAddr=kindleconfig.kindle_from,
         toAddr=kindleconfig.kindle_to,
         gmailUser=kindleconfig.gmail_user,
-        gmailPass=kindleconfig.gmail_pass
+        gmailPass=kindleconfig.gmail_pass,
+        extraConvertParams=extraConvertParams
     )
 
-def send(filepath, fromAddr=None, toAddr=None, gmailUser=None, gmailPass=None, autoConvertMobi=True):
+def send(filepath, fromAddr=None, toAddr=None, gmailUser=None, gmailPass=None,
+    autoConvertMobi=True, extraConvertParams=None):
     fn, ext = os.path.splitext(filepath)
 
     if not ext == ".mobi" and autoConvertMobi:
-    	convertToFormat(filepath, "mobi")
+    	ebookconvert.convertToFormat(filepath, "mobi", extraParams=extraConvertParams)
     	ext = ".mobi"
     	filepath = fn+ext
 
@@ -65,13 +67,18 @@ def build_command_line():
 
 def main():
     parser = build_command_line()
+    parser.add_option("--fix-paragraphs", action="store_true", dest="fixparagraphs", help="Fix paragraph styling when converting to MOBI")
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
         print "Please specify a file"
         sys.exit()
 
-    sendFromConfig(args[0])
+    extraConvertParams = []
+    if options.fixparagraphs:
+        extraConvertParams += ebookconvert.ConstantFixParagraphOptions
+
+    sendFromConfig(args[0], extraConvertParams=extraConvertParams)
 
 if __name__ == '__main__':
 	main()

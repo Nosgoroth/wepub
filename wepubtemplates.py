@@ -75,6 +75,10 @@ stylesheet_tpl = '''
         orphans: 2;
         widows: 2;
     }
+    p {
+        margin-top:.4em;
+        margin-bottom:.4em;
+    }
     h2 {
         margin: 5px;
     }

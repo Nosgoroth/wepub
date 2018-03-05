@@ -192,6 +192,8 @@ If it's not a mobi file the script will attempt to convert it. You will need Cal
 python sendtokindle.py ~/myebook.epub
 ```
 
+If, when converting to mobi, you get odd looking paragraphs, you might want to use the `--fix-paragraphs` option. You can use this option in both `wepub.py` and `sendtokindle.py`.
+
 ## Known snags
 
 * `ebook-polish` doesn't handle file names properly.

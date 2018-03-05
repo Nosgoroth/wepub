@@ -9,7 +9,7 @@ except:
 from optparse import OptionParser
 
 from wepubutils import *
-from ebookconvert import convertToFormat, polishepub, openInEbookViewer
+import ebookconvert
 import sendtokindle
 
 
@@ -26,6 +26,7 @@ def main():
     parser.add_option("--reprocess", action="store_true", dest="nordbcache", help="Use only raw cache")
     parser.add_option("--polish", action="store_true", dest="polish", help="Polishes the resulting epub")
     parser.add_option("--mobi", action="store_true", dest="mobi", help="Convert to MOBI")
+    parser.add_option("--fix-paragraphs", action="store_true", dest="fixparagraphs", help="Fix paragraph styling when converting to MOBI")
     parser.add_option("--kindle", action="store_true", dest="sendtokindle", help="Send to Kindle")
     parser.add_option("--open", action="store_true", dest="open", help="Opens the resulting epub in Calibre's ebook-viewer")
     parser.add_option("-p", "--debug", "--preview", action="store_true", dest="preview", help="Print output of first url and exit")
@@ -102,21 +103,26 @@ def main():
     if options.open:
         print
         print "Opening epub..."
-        openInEbookViewer(options.outfile)
+        ebookconvert.openInEbookViewer(options.outfile)
 
     if options.polish:
         print
         print "Polishing epub..."
         print
-        polishepub(options.outfile)
+        ebookconvert.polishepub(options.outfile)
         print
         print "Polish complete"
 
     if options.mobi or options.sendtokindle:
+
+        extraConvertParams = []
+        if options.fixparagraphs:
+            extraConvertParams += ebookconvert.ConstantFixParagraphOptions
+
         print
         print "Converting to MOBI..."
         print
-        retval = convertToFormat(options.outfile, 'mobi')
+        retval = ebookconvert.convertToFormat(options.outfile, 'mobi', extraParams=extraConvertParams)
         print
         print "Conversion completed with exit code", retval
 
