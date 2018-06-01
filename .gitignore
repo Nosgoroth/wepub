@@ -3,6 +3,7 @@ kindleconfig.py
 cache/
 readability/
 covers/
+out
 out/
 configs/*
 !configs/__init__.py

@@ -1,6 +1,6 @@
 
 # Standard modules
-import os, sys, re, time, mimetypes, urlparse, zipfile, cgi, hashlib
+import os, sys, re, time, mimetypes, urlparse, zipfile, cgi, hashlib, urllib, json
 # Third party modules
 import requests
 try:
@@ -281,9 +281,47 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 		if not os.path.exists(htmlcachefile) or ignoreCache:
 			print "   ", "Getting from network...",
 			sys.stdout.flush()
+			
 			try:
-				r = requests.get(url)
+
+				#Create a requests session for our cookies in case we need them
+				s = requests.Session()
+
+				#Get the URL
+				r = s.get(url)
+
+				# If we were redirected to the dumb Tumblr GDPR consent page
+				if "tumblr.com" in url and "privacy/consent" in r.url:
+
+					# Get the formkey, if this fails, just let the process die because ¯\_(ツ)_/¯
+					privurl = r.url
+					m = re.search(r'tumblr_form_key" content\="([^"]+)"', r.text)
+					formkey = m.group(1)
+
+					# Mirroring the browser behavior, POST the consent payload with the formkey as a header.
+					# This gets us the cookies we need to proceed with our original request.
+					# Note: The dumb thing fails if "gdpr_consent_first_party_ads" is false, go figure.
+					consentPayload = {
+						"eu_resident": True,
+						"gdpr_is_acceptable_age": True,
+						"gdpr_consent_core": True,
+						"gdpr_consent_first_party_ads": True,
+						"gdpr_consent_third_party_ads": False,
+						"gdpr_consent_search_history": False,
+						"redirect_to": url
+					}
+					headers = {
+						"Referer": privurl,
+						"Content-Type": "application/json",
+						"X-tumblr-form-key": formkey
+					}
+					r = s.post("https://www.tumblr.com/svc/privacy/consent", headers=headers, data=json.dumps(consentPayload))
+
+					# We perform the original request already
+					r = s.get(url)
+
 				print r.status_code
+
 			except:
 				print "ERROR"
 				raise
@@ -326,7 +364,7 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 	else:
 		with open(rdbcachefile, 'r') as f: rdbhtml = f.read()
 		with open(rdbtcachefile, 'r') as f: rdbtitle = f.read()
-		source = "cache"
+		source = "cache ("+hashid+")"
 
 	if not rdbhtml: raise RetrieveUrlException("No content")
 
