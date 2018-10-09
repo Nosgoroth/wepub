@@ -74,6 +74,7 @@ class EventGetter():
 			if not futureEvents:
 				url += "&filter[where][date][lt]="+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 			
+			#print url
 			print "Getting latest events...",
 			events = jncapi.request(url)
 			print("done.")
@@ -86,6 +87,7 @@ class EventGetter():
 
 		eventobjs = []
 		for rawevent in events:
+			print rawevent
 			evt = Event(rawevent)
 			if filterType is not None and evt.eventType != filterType:
 				continue
@@ -201,4 +203,18 @@ class Event():
 			print "Error retrieving event part data"
 			return (None, None)
 		return (part["title"], partdata["dataHTML"])
+
+
+
+def sortContentUrlsByPartNumber(urls):
+	x = []
+	for url in urls:
+		n = 999
+		rpart = re.search(r'part-([\d]+)(-final)?$', url)
+		if rpart:
+			n = int(rpart.group(1))
+		x.append((n, url))
+	x = sorted(x, key=lambda x: x[0])
+	return [t[1] for t in x]
+			
 

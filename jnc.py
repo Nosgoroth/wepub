@@ -10,6 +10,7 @@ def main():
 	parser = OptionParser(usage="Usage: %prog [options]")
 	parser.add_option("--nocache", action="store_true", dest="nocache", help="Don't use cache when retrieving events from JNC API")
 	parser.add_option("--cleardata", action="store_true", dest="cleardata", help="Delete usage memory")
+	parser.add_option("--limit", action="store", dest="limit", default=25, help="How many items to get")
 	parser.add_option("--check", action="store_true", dest="check", help="Check JNC events and auto add to wepub config")
 
 	(options, args) = parser.parse_args()
@@ -22,7 +23,7 @@ def main():
 
 	if options.check:
 		lastchecked = jncutils.checkinfo.getLastChecked()
-		events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=25)
+		events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
 		for event in events:
 			print
 			print "Found %s %s" % (event.name, event.details)
@@ -59,6 +60,7 @@ def main():
 				print "Part already exists! Ignoring..."
 				continue
 			cfgdata["urls"].append(url)
+			cfgdata["urls"] = jncutils.sortContentUrlsByPartNumber(cfgdata["urls"])
 			if cfg.write(cfgdata, verbose=False):
 				pass
 			else:
@@ -72,9 +74,10 @@ def main():
 				event.pushoverError("FAILED to retrieve part content")
 				continue
 			else:
-				print "Got content:"
-				print "   ", title
-				print "   ", html[:30]
+				pass
+				#print "Got content:"
+				#print "   ", title
+				#print "   ", html[:30]
 
 			print "Saving content to cache...",
 			html = '<html><head></head><body>%s</body>' % html
