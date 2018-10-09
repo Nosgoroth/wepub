@@ -14,7 +14,7 @@ import ebookconvert
 
 
 def sendFromConfig(filepath, extraConvertParams=None):
-    import kindleconfig
+    import config as kindleconfig
     return send(
         filepath,
         fromAddr=kindleconfig.kindle_from,

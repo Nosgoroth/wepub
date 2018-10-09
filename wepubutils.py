@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 
 # Standard modules
-import os, sys, re, time, mimetypes, urlparse, zipfile, cgi, hashlib, urllib, json
+import os, sys, re, time, mimetypes, urlparse, zipfile, cgi, hashlib, urllib, json, importlib
 # Third party modules
 import requests
 try:
@@ -11,7 +12,103 @@ from BeautifulSoup import BeautifulSoup,Tag
 # App modules
 import wepubtemplates
 
+class ConfigFile:
+	config = None
+	valid = False
+	pythonType = False
+	readcache = None
 
+	def __init__(self, config):
+		self.config = config
+		#self.read(verbose=False)
+
+	def existsAsWepubdl(self):
+		wepubdlpath = os.path.join("configs", "%s.wepubdl" % self.config)
+		return os.path.exists(wepubdlpath)
+
+	def read(self, verbose=True):
+		if self.readcache is not None:
+			return self.readcache
+
+		wepubdlpath = os.path.join("configs", "%s.wepubdl" % self.config)
+		if os.path.exists(wepubdlpath):
+			if verbose: print "Using config file", "%s.wepubdl" % self.config
+
+			try:
+				with open(wepubdlpath) as f:
+					wepubconfig = json.load(f)
+			except IOError:
+				if verbose: print "No such config:", self.config
+				return None
+			except ValueError as ex:
+				if verbose: 
+					print
+					print "Syntax error in config", self.config
+					print "(Make sure it conforms to strict JSON, not just JS)"
+					print
+					print ex
+				return None
+
+			self.valid = True
+
+			self.readcache = wepubconfig
+			return wepubconfig
+		else:
+			if verbose: print "Using config file", "%s.py" % self.config
+			try:
+				moduleconfig = importlib.import_module("configs."+self.config)
+			except ImportError:
+				if verbose: print "No such config:", self.config
+				return None
+			except SyntaxError:
+				if verbose:
+					print
+					print "Syntax error in config", self.config
+					print
+				return None
+				
+			self.pythonType = True
+			self.valid = True
+
+			wepubconfig = {}
+			for k in [item for item in dir(moduleconfig) if not item.startswith("__")]:
+				wepubconfig[k] = moduleconfig.__dict__[k]
+
+			self.readcache = wepubconfig
+			return wepubconfig
+
+
+	def clearReadCache(self):
+		self.readcache = None
+
+
+	def write(self, options, createNew=False, verbose=True):
+		if not self.valid and not createNew:
+			if verbose: print "Config file is not valid"
+			return False
+
+		if self.pythonType:
+			if verbose: print "Writing to Python config files not supported"
+			return False
+
+		wepubdlpath = os.path.join("configs", "%s.wepubdl" % self.config)
+		
+		if verbose: print "Using config file", "%s.wepubdl" % self.config
+
+		try:
+			with open(wepubdlpath, "w") as f:
+				json.dump(options, f)
+		except IOError:
+			if verbose: print "Couldn't write to config:", self.config
+			return False
+
+		self.clearReadCache()
+		return True
+
+class ObjectDict(object):
+    def __init__(self, dictionary):
+        for key in dictionary:
+            setattr(self, key, dictionary[key])
 
 class EpubProcessor:
 
@@ -20,6 +117,31 @@ class EpubProcessor:
 	info = None
 
 	def __init__(self, options):
+
+		if type(options) is dict:
+			options = ObjectDict(options)
+
+		try: x = options.title_as_header
+		except: setattr(options, "title_as_header", True)
+
+		try: x = options.versionid
+		except: setattr(options, "versionid", None)
+
+		try: x = options.filters
+		except: setattr(options, "filters", [])
+
+		try: x = options.titlefilters
+		except: setattr(options, "titlefilters", [])
+
+		try: x = options.nocache
+		except: setattr(options, "nocache", False)
+
+		try: x = options.nordbcache
+		except: setattr(options, "nordbcache", False)
+
+		try: x = options.preview
+		except: setattr(options, "preview", False)
+
 		self.options = options
 
 	def make(self):
@@ -262,7 +384,7 @@ def processImage(urlOrPath, ignoreCache=False, extension=None): #extension with 
 
 class RetrieveUrlException(Exception): pass
 
-def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignoreReadability=False, versionId=None):
+def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignoreReadability=False, versionId=None, setCacheContent=None, setCacheReadable=None, setCacheTitle=None):
 
 	hashsrc = url + (("&v="+str(versionId)) if versionId else "")
 	hashid = hashlib.sha1(hashsrc).hexdigest()
@@ -271,6 +393,13 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 	rdbtcachefile = os.path.join("cache", hashid+"_rdbt.txt")
 
 	if not os.path.isdir("cache"): os.mkdir("cache")
+
+	if setCacheContent:
+		with open(htmlcachefile, 'w') as f: f.write(setCacheContent.encode('utf-8'))
+	if setCacheReadable:
+		with open(rdbcachefile, 'w') as f: f.write(setCacheReadable.encode('utf-8'))
+	if setCacheTitle:
+		with open(rdbtcachefile, 'w') as f: f.write(setCacheTitle.encode('utf-8'))
 
 	html = None
 	rdbhtml = None

@@ -1,4 +1,4 @@
-kindleconfig.py
+config.py
 *.pyc
 cache/
 readability/
@@ -9,4 +9,4 @@ configs/*
 !configs/__init__.py
 !configs/example.py
 !configs/example.wepubdl
-
+.*.json
