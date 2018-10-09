@@ -327,11 +327,14 @@ class EpubProcessor:
 			if filepath:
 				print "done"
 
-				with open(filepath) as f: self.epub.writestr('OEBPS/images/'+filename, f.read())
+				with open(filepath, "rb") as f:
+					content = f.read()
+					print len(content)
+					self.epub.writestr('OEBPS/images/'+filename, content)
 				
 				image['src'] = 'images/'+filename
 
-				manifest += '<item id="article_%s_image_%s" href="images/%s" media-type="%s"/>\n' % (index+1, j+1, filename,mimetypes.guess_type(filename)[0])
+				manifest += '<item id="article_%s_image_%s" href="images/%s" media-type="%s"/>\n' % (index+1, j+1, filename, mimetypes.guess_type(filename)[0])
 			
 			else:
 				print "error"

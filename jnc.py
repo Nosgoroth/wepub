@@ -24,72 +24,84 @@ def main():
 	if options.check:
 		lastchecked = jncutils.checkinfo.getLastChecked()
 		events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
+		print "Found", len(events)
 		for event in events:
-			print
-			print "Found %s %s" % (event.name, event.details)
 
-			cfgid = "jnc_"+event.toConfigFileName()
-			cfg = wepubutils.ConfigFile(cfgid)
-			cfgdata = cfg.read(verbose=False)
+			try:
 
-			if not cfgdata:
-				cfgdata = {}
-				cfgdata["title"] = event.name
-				cfgdata["outfile"] = "out/jnc/"+event.name+".epub"
-				cfgdata["urls"] = []
+				print
+				print "Found %s %s" % (event.name, event.details)
 
-				volume = event.getVolume()
-				if volume:
-					cfgdata["author"] = volume["author"]
-					cfgdata["cover"] = jncapi.getCoverFullUrlForAttachmentContainer(volume)
-				else:
-					print "Couldn't get volume data"
-
-				saved = cfg.write(cfgdata, createNew=True, verbose=False)
+				cfgid = "jnc_"+event.toConfigFileName()
+				cfg = wepubutils.ConfigFile(cfgid)
 				cfgdata = cfg.read(verbose=False)
-				if not saved or not cfgdata:
-					print "ERROR creating new config!"
-					event.pushoverError("ERROR creating new config")
+
+				if not cfgdata:
+					cfgdata = {}
+					cfgdata["title"] = event.name
+					cfgdata["outfile"] = "out/jnc/"+event.toEpubFileName()+".epub"
+					cfgdata["urls"] = []
+
+					volume = event.getVolume()
+					if volume:
+						cfgdata["author"] = volume["author"]
+						cfgdata["cover"] = jncapi.getCoverFullUrlForAttachmentContainer(volume)
+					else:
+						print "Couldn't get volume data"
+
+					saved = cfg.write(cfgdata, createNew=True, verbose=False)
+					cfgdata = cfg.read(verbose=False)
+					if not saved or not cfgdata:
+						print "ERROR creating new config!"
+						event.pushoverError("ERROR creating new config")
+						continue
+
+				url = event.getUrl()
+
+				if not "urls" in cfgdata:
+					cfgdata["urls"] = []
+				if url in cfgdata["urls"]:
+					print "Part already exists! Ignoring..."
+					continue
+				cfgdata["urls"].append(url)
+				cfgdata["urls"] = jncutils.sortContentUrlsByPartNumber(cfgdata["urls"])
+				if cfg.write(cfgdata, verbose=False):
+					pass
+				else:
+					print "FAILED to add URL to config"
+					event.pushoverError("FAILED to add URL to config")
 					continue
 
-			url = event.getUrl()
+				title, html = event.getPartContent()
+				if not html:
+					print "FAILED to retrieve part content"
+					event.pushoverError("FAILED to retrieve part content")
+					continue
+				else:
+					pass
+					#print "Got content:"
+					#print "   ", title
+					#print "   ", html[:30]
 
-			if not "urls" in cfgdata:
-				cfgdata["urls"] = []
-			if url in cfgdata["urls"]:
-				print "Part already exists! Ignoring..."
-				continue
-			cfgdata["urls"].append(url)
-			cfgdata["urls"] = jncutils.sortContentUrlsByPartNumber(cfgdata["urls"])
-			if cfg.write(cfgdata, verbose=False):
-				pass
-			else:
-				print "FAILED to add URL to config"
-				event.pushoverError("FAILED to add URL to config")
-				continue
+				print "Saving content to cache...",
+				html = '<html><head></head><body>%s</body>' % html
+				wepubutils.retrieveUrl(url, setCacheContent=html, setCacheReadable=html, setCacheTitle=title)
+				print "done."
 
-			title, html = event.getPartContent()
-			if not html:
-				print "FAILED to retrieve part content"
-				event.pushoverError("FAILED to retrieve part content")
-				continue
-			else:
-				pass
-				#print "Got content:"
-				#print "   ", title
-				#print "   ", html[:30]
+				print "Making epub...",
+				processor = wepubutils.EpubProcessor(cfgdata)
+				processor.make()
+				print "done."
 
-			print "Saving content to cache...",
-			html = '<html><head></head><body>%s</body>' % html
-			wepubutils.retrieveUrl(url, setCacheContent=html, setCacheReadable=html, setCacheTitle=title)
-			print "done."
-
-			print "Making epub...",
-			processor = wepubutils.EpubProcessor(cfgdata)
-			processor.make()
-			print "done."
-
-			event.pushoverOk()
+				event.pushoverOk()
+			except Exception, e:
+				print
+				print "ERROR PROCESSING EVENT"
+				print
+				print e
+				print
+				print
+				#raise
 				
 
 		jncutils.checkinfo.setLastCheckedNow()

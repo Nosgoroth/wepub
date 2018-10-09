@@ -70,7 +70,7 @@ class EventGetter():
 		else:
 
 			filterlimit = requestLimit if requestLimit is not None else 200
-			url = "/events?filter[limit]="+str(filterlimit)
+			url = "/events?filter[order]date%20DESC&filter[limit]="+str(filterlimit)
 			if not futureEvents:
 				url += "&filter[where][date][lt]="+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 			
@@ -87,7 +87,6 @@ class EventGetter():
 
 		eventobjs = []
 		for rawevent in events:
-			print rawevent
 			evt = Event(rawevent)
 			if filterType is not None and evt.eventType != filterType:
 				continue
@@ -160,6 +159,11 @@ class Event():
 
 	def toConfigFileName(self):
 		n = re.sub(r'[^\d\w]', "_", self.name)
+		n = re.sub(r'_+', '_', n)
+		return n
+
+	def toEpubFileName(self):
+		n = re.sub(r'[^\d\w\.\s\_\-\,\!]', "_", self.name)
 		n = re.sub(r'_+', '_', n)
 		return n
 

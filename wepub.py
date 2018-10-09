@@ -32,9 +32,26 @@ def main():
 	parser.add_option("-p", "--debug", "--preview", action="store_true", dest="preview", help="Print output of first url and exit")
 	parser.add_option("--add", action="store", dest="add", help="Add an URL to the config")
 
+	parser.add_option("--rebuildall", action="store_true", dest="rebuildAll", help="Iterates all configs and rebuilds them all")
+
 	(options, args) = parser.parse_args()
 
 	print
+
+	if options.rebuildAll:
+		for file in os.listdir("configs"):
+			try:
+				print
+				fn, ext = os.path.splitext(file)
+				CFG = ConfigFile(fn)
+				wepubconfig = CFG.read()
+				epub = EpubProcessor(wepubconfig)
+				epub.make()
+			except Exception, ex:
+				print
+				print "ERROR:", ex
+				print
+		sys.exit()
 
 	if len(args) < 1:
 		print "Please specify a config file name"
