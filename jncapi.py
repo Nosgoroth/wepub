@@ -9,7 +9,11 @@ Cloudfront = "https://d2dq7ifhe7bu0f.cloudfront.net"
 authtoken = None
 
 def login():
-	data = request("/Users/login", data={"email": config.jnc_email, "password": config.jnc_password}, usePost=True)
+	global authtoken
+	if authtoken:
+		return True
+
+	data = request("/Users/login?include=user", data={"email": config.jnc_email, "password": config.jnc_password}, usePost=True)
 	try:
 		authtoken = data["id"]
 		return True
@@ -18,6 +22,7 @@ def login():
 		return False
 
 def request(url, data=None, usePost=False, requireAuth=False, verbose=True):
+	global authtoken
 	try:
 		if requireAuth:
 			res = login()
@@ -25,6 +30,7 @@ def request(url, data=None, usePost=False, requireAuth=False, verbose=True):
 
 		headers = None
 		if authtoken:
+			#print "USING authtoken:", authtoken
 			headers={"Authorization": authtoken}
 
 		if usePost:
