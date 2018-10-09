@@ -25,6 +25,9 @@ def main():
 		lastchecked = jncutils.checkinfo.getLastChecked()
 		events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
 		print "Found", len(events)
+
+		configsToGenerate = []
+
 		for event in events:
 
 			try:
@@ -77,21 +80,14 @@ def main():
 					print "FAILED to retrieve part content"
 					event.pushoverError("FAILED to retrieve part content")
 					continue
-				else:
-					pass
-					#print "Got content:"
-					#print "   ", title
-					#print "   ", html[:30]
 
 				print "Saving content to cache...",
 				html = '<html><head></head><body>%s</body>' % html
 				wepubutils.retrieveUrl(url, setCacheContent=html, setCacheReadable=html, setCacheTitle=title)
 				print "done."
 
-				print "Making epub...",
-				processor = wepubutils.EpubProcessor(cfgdata)
-				processor.make()
-				print "done."
+				if cfgid not in configsToGenerate:
+					configsToGenerate.append(cfgid)
 
 				event.pushoverOk()
 			except Exception, e:
@@ -102,7 +98,13 @@ def main():
 				print
 				print
 				#raise
-				
+
+		for cfgid in configsToGenerate:
+			print
+			print
+			cfg = wepubutils.ConfigFile(cfgid)
+			cfgdata = cfg.read(verbose=False)
+			wepubutils.EpubProcessor(cfgdata).make()
 
 		jncutils.checkinfo.setLastCheckedNow()
 	else:

@@ -22,7 +22,7 @@ import sendtokindle
 
 def main():
 	parser = OptionParser(usage="Usage: %prog configFile [options]")
-	parser.add_option("-r", "--redownload", action="store_true", dest="nocache", help="Don't use cache")
+	parser.add_option("-r", "--redownload", "--nocache", action="store_true", dest="nocache", help="Don't use cache")
 	parser.add_option("--reprocess", action="store_true", dest="nordbcache", help="Use only raw cache")
 	parser.add_option("--polish", action="store_true", dest="polish", help="Polishes the resulting epub")
 	parser.add_option("--mobi", action="store_true", dest="mobi", help="Convert to MOBI")

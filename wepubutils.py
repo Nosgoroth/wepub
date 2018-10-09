@@ -11,6 +11,7 @@ except:
 from BeautifulSoup import BeautifulSoup,Tag
 # App modules
 import wepubtemplates
+import jncapi
 
 class ConfigFile:
 	config = None
@@ -329,7 +330,6 @@ class EpubProcessor:
 
 				with open(filepath, "rb") as f:
 					content = f.read()
-					print len(content)
 					self.epub.writestr('OEBPS/images/'+filename, content)
 				
 				image['src'] = 'images/'+filename
@@ -413,51 +413,73 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 		if not os.path.exists(htmlcachefile) or ignoreCache:
 			print "   ", "Getting from network...",
 			sys.stdout.flush()
+
+			if "j-novel.club" in url:
+
+				r = re.search(r"\/c\/([^\/]+)\/?(search|read)?$", url)
+				if not r:
+					raise "Invalid URL for JNC"
+				slug = r.group(1)
+				part = jncapi.getPartFromSlug(slug)
+				if not part or not "id" in part:
+					raise "Error retrieving event part"
+				partid = part["id"]
+				partdata = jncapi.getPartData(partid)
+				if not partdata or "dataHTML" not in partdata:
+					raise "Error retrieving event part data"
+
+				html = partdata["dataHTML"]
+				html = '<html><head></head><body>%s</body>' % html
+				rdbhtml = html.encode('utf-8')
+				rdbtitle = part["title"].encode('utf-8')
+
+
+			else:
 			
-			try:
+				try:
 
-				#Create a requests session for our cookies in case we need them
-				s = requests.Session()
+					#Create a requests session for our cookies in case we need them
+					s = requests.Session()
 
-				#Get the URL
-				r = s.get(url)
-
-				# If we were redirected to the dumb Tumblr GDPR consent page
-				if "tumblr.com" in url and "privacy/consent" in r.url:
-
-					# Get the formkey, if this fails, just let the process die because ¯\_(ツ)_/¯
-					privurl = r.url
-					m = re.search(r'tumblr_form_key" content\="([^"]+)"', r.text)
-					formkey = m.group(1)
-
-					# Mirroring the browser behavior, POST the consent payload with the formkey as a header.
-					# This gets us the cookies we need to proceed with our original request.
-					# Note: The dumb thing fails if "gdpr_consent_first_party_ads" is false, go figure.
-					consentPayload = {
-						"eu_resident": True,
-						"gdpr_is_acceptable_age": True,
-						"gdpr_consent_core": True,
-						"gdpr_consent_first_party_ads": True,
-						"gdpr_consent_third_party_ads": False,
-						"gdpr_consent_search_history": False,
-						"redirect_to": url
-					}
-					headers = {
-						"Referer": privurl,
-						"Content-Type": "application/json",
-						"X-tumblr-form-key": formkey
-					}
-					r = s.post("https://www.tumblr.com/svc/privacy/consent", headers=headers, data=json.dumps(consentPayload))
-
-					# We perform the original request already
+					#Get the URL
 					r = s.get(url)
 
-				print r.status_code
+					# If we were redirected to the dumb Tumblr GDPR consent page
+					if "tumblr.com" in url and "privacy/consent" in r.url:
 
-			except:
-				print "ERROR"
-				raise
-			html = r.text
+						# Get the formkey, if this fails, just let the process die because ¯\_(ツ)_/¯
+						privurl = r.url
+						m = re.search(r'tumblr_form_key" content\="([^"]+)"', r.text)
+						formkey = m.group(1)
+
+						# Mirroring the browser behavior, POST the consent payload with the formkey as a header.
+						# This gets us the cookies we need to proceed with our original request.
+						# Note: The dumb thing fails if "gdpr_consent_first_party_ads" is false, go figure.
+						consentPayload = {
+							"eu_resident": True,
+							"gdpr_is_acceptable_age": True,
+							"gdpr_consent_core": True,
+							"gdpr_consent_first_party_ads": True,
+							"gdpr_consent_third_party_ads": False,
+							"gdpr_consent_search_history": False,
+							"redirect_to": url
+						}
+						headers = {
+							"Referer": privurl,
+							"Content-Type": "application/json",
+							"X-tumblr-form-key": formkey
+						}
+						r = s.post("https://www.tumblr.com/svc/privacy/consent", headers=headers, data=json.dumps(consentPayload))
+
+						# We perform the original request already
+						r = s.get(url)
+
+					print r.status_code
+
+				except:
+					print "ERROR"
+					raise
+				html = r.text
 
 			if not html: raise RetrieveUrlException("Couldn't retrieve URL")
 
@@ -469,15 +491,16 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 
 		if not html: raise RetrieveUrlException("No data")
 
-		print "   ", "Creating readable version...",
-		sys.stdout.flush()
-		
-		readabilitydoc = Document(html)
-		
-		rdbhtml = readabilitydoc.summary().encode('utf-8')
-		rdbtitle = readabilitydoc.short_title().encode('utf-8')
+		if not rdbhtml or not rdbtitle:
+			print "   ", "Creating readable version...",
+			sys.stdout.flush()
+			
+			readabilitydoc = Document(html)
+			
+			rdbhtml = readabilitydoc.summary().encode('utf-8')
+			rdbtitle = readabilitydoc.short_title().encode('utf-8')
 
-		print "OK"
+			print "OK"
 
 		for (rx, to) in transforms:
 			try:
