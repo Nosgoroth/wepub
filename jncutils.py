@@ -4,7 +4,7 @@ import os, sys, json, time, re
 from pprint import pprint
 from datetime import datetime
 
-import jncapi
+import jncapi, wepubutils
 from pushover import pushover
 
 JNCSite = "https://j-novel.club"
@@ -48,6 +48,8 @@ class EventCheckInfo():
 
 
 
+
+
 class EventGetter():
 	cachefn = None
 
@@ -58,7 +60,7 @@ class EventGetter():
 		if not os.path.exists(self.cachefn): return
 		os.remove(self.cachefn)
 
-	def getLatest(self, filterType=None, minDate=None, requestLimit=50, cacheMinutes=60, reverse=False, futureEvents=False):
+	def getLatest(self, filterType=None, minDate=None, maxDate=None, requestLimit=50, cacheMinutes=60, reverse=False, futureEvents=False):
 		if os.path.exists(self.cachefn) and os.path.getmtime(self.cachefn) > time.time()-60*cacheMinutes:
 
 			print("Using cached events.")
@@ -70,9 +72,11 @@ class EventGetter():
 		else:
 
 			filterlimit = requestLimit if requestLimit is not None else 200
-			url = "/events?filter[order]date%20DESC&filter[limit]="+str(filterlimit)
-			if not futureEvents:
-				url += "&filter[where][date][lt]="+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+			url = "/events?filter[limit]="+str(filterlimit)
+			if futureEvents:
+				url += "&filter[order]=date%20ASC&filter[where][date][gt]="+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+			else:
+				url += "&filter[order]=date%20DESC&filter[where][date][lt]="+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 			
 			#print url
 			print "Getting latest events...",
@@ -90,7 +94,9 @@ class EventGetter():
 			evt = Event(rawevent)
 			if filterType is not None and evt.eventType != filterType:
 				continue
-			if minDate is not None and minDate > evt.date:
+			if minDate is not None and minDate >= evt.date:
+				continue
+			if maxDate is not None and maxDate <= evt.date:
 				continue
 			eventobjs.append(evt)
 
@@ -111,6 +117,7 @@ class Event():
 	eventId = None
 	name = None
 	partNum = None
+	volumeNum = None
 	finalPart = False
 	date = None
 	details = None
@@ -136,6 +143,86 @@ class Event():
 		else:
 			self.eventType = EventType.Other
 
+		#For when the event name just doesn't include the volume number
+		r = re.search(r'(Volume|Vol|Vol\.)\s?([\d]+)?\s?', self.details)
+		if r:
+			self.volumeNum = int(r.group(2))
+
+		r = re.search(r'(Volume|Vol|Vol\.) ([\d]+)?\s?', self.name)
+		if not r and self.volumeNum:
+			self.name += " Vol. "+str(self.volumeNum)
+		elif not self.volumeNum and r:
+			self.volumeNum = int(r.group(2))
+
+	def process(self, verbose=True):
+		try:
+			if verbose:
+				print
+				print "Found %s %s" % (self.name, self.details)
+
+			cfgid = self.toConfigFileName()
+			cfg = wepubutils.ConfigFile(cfgid)
+			cfgdata = cfg.read(verbose=False)
+
+			if not cfgdata:
+				cfgdata = {}
+				cfgdata["title"] = self.name
+				cfgdata["outfile"] = "out/jnc/"+self.toEpubFileName()+".epub"
+				cfgdata["urls"] = []
+
+				volume = self.getVolume()
+				if volume:
+					cfgdata["author"] = volume["author"]
+					cfgdata["cover"] = jncapi.getCoverFullUrlForAttachmentContainer(volume)
+				else:
+					print "Couldn't get volume data"
+
+				saved = cfg.write(cfgdata, createNew=True, verbose=False)
+				cfgdata = cfg.read(verbose=False)
+				if not saved or not cfgdata:
+					print "ERROR creating new config!"
+					self.pushoverError("ERROR creating new config")
+					return False
+
+			url = self.getUrl()
+
+			if not "urls" in cfgdata:
+				cfgdata["urls"] = []
+			if url in cfgdata["urls"]:
+				print "Part already exists! Ignoring..."
+				return False
+			cfgdata["urls"].append(url)
+			cfgdata["urls"] = sortContentUrlsByPartNumber(cfgdata["urls"])
+			if cfg.write(cfgdata, verbose=False):
+				pass
+			else:
+				print "FAILED to add URL to config"
+				self.pushoverError("FAILED to add URL to config")
+				return False
+
+			title, html = self.getPartContent()
+			if not html:
+				print "FAILED to retrieve part content"
+				self.pushoverError("FAILED to retrieve part content")
+				return False
+
+			print "Saving content to cache...",
+			html = '<html><head></head><body>%s</body>' % html
+			wepubutils.retrieveUrl(url, setCacheContent=html, setCacheReadable=html, setCacheTitle=title)
+			print "done."
+
+			self.pushoverOk()
+
+			return True
+		except Exception, e:
+			print
+			print "ERROR PROCESSING EVENT"
+			print
+			print e
+			print
+			print
+			return False
+
 	def pushoverOk(self):
 		pushover( "[JNC] %s %s" % (self.name, self.details) )
 
@@ -160,7 +247,7 @@ class Event():
 	def toConfigFileName(self):
 		n = re.sub(r'[^\d\w]', "_", self.name)
 		n = re.sub(r'_+', '_', n)
-		return n
+		return "jnc_"+n
 
 	def toEpubFileName(self):
 		n = re.sub(r'[^\d\w\.\s\_\-\,\!]', "_", self.name)

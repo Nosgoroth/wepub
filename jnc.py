@@ -6,12 +6,64 @@ import wepubutils
 from pushover import pushover
 
 
+
+def checkLatestParts(options, verbose=True):
+	lastchecked = jncutils.checkinfo.getLastChecked()
+
+	events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
+	print "Found", len(events)
+
+	configsToGenerate = []
+	latestCheckedEvent = None
+
+	for event in events:
+		if not event.process(verbose=verbose):
+			continue
+
+		if event.date and (not latestCheckedEvent or latestCheckedEvent < event.date):
+			latestCheckedEvent = event.date
+
+		cfgid = event.toConfigFileName()
+		if cfgid not in configsToGenerate:
+			configsToGenerate.append(cfgid)
+
+
+	for cfgid in configsToGenerate:
+		print
+		print
+		cfg = wepubutils.ConfigFile(cfgid)
+		cfgdata = cfg.read(verbose=False)
+		wepubutils.EpubProcessor(cfgdata).make()
+
+	if latestCheckedEvent:
+		jncutils.checkinfo.setLastChecked(latestCheckedEvent)
+
+
+
+
+
+def printLatestEvents(options):
+	events = jncutils.events.getLatest(filterType=None, requestLimit=int(options.limit))
+	for event in events: print event
+
+
+def printNextEvents(options):
+	events = jncutils.events.getLatest(filterType=None, futureEvents=True, requestLimit=int(options.limit))
+	for event in events: print event
+
+
+
+
+
+
+
 def main():
 	parser = OptionParser(usage="Usage: %prog [options]")
 	parser.add_option("--nocache", action="store_true", dest="nocache", help="Don't use cache when retrieving events from JNC API")
 	parser.add_option("--cleardata", action="store_true", dest="cleardata", help="Delete usage memory")
 	parser.add_option("--limit", action="store", dest="limit", default=25, help="How many items to get")
 	parser.add_option("--check", action="store_true", dest="check", help="Check JNC events and auto add to wepub config")
+	parser.add_option("--next", action="store_true", dest="next", help="Print upcoming JNC events")
 
 	(options, args) = parser.parse_args()
 
@@ -22,99 +74,12 @@ def main():
 		jncutils.events.clearCache()
 
 	if options.check:
-		lastchecked = jncutils.checkinfo.getLastChecked()
-		events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
-		print "Found", len(events)
-
-		configsToGenerate = []
-
-		for event in events:
-
-			try:
-
-				print
-				print "Found %s %s" % (event.name, event.details)
-
-				cfgid = "jnc_"+event.toConfigFileName()
-				cfg = wepubutils.ConfigFile(cfgid)
-				cfgdata = cfg.read(verbose=False)
-
-				if not cfgdata:
-					cfgdata = {}
-					cfgdata["title"] = event.name
-					cfgdata["outfile"] = "out/jnc/"+event.toEpubFileName()+".epub"
-					cfgdata["urls"] = []
-
-					volume = event.getVolume()
-					if volume:
-						cfgdata["author"] = volume["author"]
-						cfgdata["cover"] = jncapi.getCoverFullUrlForAttachmentContainer(volume)
-					else:
-						print "Couldn't get volume data"
-
-					saved = cfg.write(cfgdata, createNew=True, verbose=False)
-					cfgdata = cfg.read(verbose=False)
-					if not saved or not cfgdata:
-						print "ERROR creating new config!"
-						event.pushoverError("ERROR creating new config")
-						continue
-
-				url = event.getUrl()
-
-				if not "urls" in cfgdata:
-					cfgdata["urls"] = []
-				if url in cfgdata["urls"]:
-					print "Part already exists! Ignoring..."
-					continue
-				cfgdata["urls"].append(url)
-				cfgdata["urls"] = jncutils.sortContentUrlsByPartNumber(cfgdata["urls"])
-				if cfg.write(cfgdata, verbose=False):
-					pass
-				else:
-					print "FAILED to add URL to config"
-					event.pushoverError("FAILED to add URL to config")
-					continue
-
-				title, html = event.getPartContent()
-				if not html:
-					print "FAILED to retrieve part content"
-					event.pushoverError("FAILED to retrieve part content")
-					continue
-
-				print "Saving content to cache...",
-				html = '<html><head></head><body>%s</body>' % html
-				wepubutils.retrieveUrl(url, setCacheContent=html, setCacheReadable=html, setCacheTitle=title)
-				print "done."
-
-				if cfgid not in configsToGenerate:
-					configsToGenerate.append(cfgid)
-
-				event.pushoverOk()
-			except Exception, e:
-				print
-				print "ERROR PROCESSING EVENT"
-				print
-				print e
-				print
-				print
-				#raise
-
-		for cfgid in configsToGenerate:
-			print
-			print
-			cfg = wepubutils.ConfigFile(cfgid)
-			cfgdata = cfg.read(verbose=False)
-			wepubutils.EpubProcessor(cfgdata).make()
-
-		jncutils.checkinfo.setLastCheckedNow()
+		checkLatestParts(options)
+	elif options.next:
+		printNextEvents(options)
 	else:
-		events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, requestLimit=25)
-		for event in events:
-			print event
-			title, html = event.getPartContent()
-			if html:
-				print(title)
-				print(html[:100])
+		printLatestEvents(options)
+		
 
 
 if __name__ == '__main__':
