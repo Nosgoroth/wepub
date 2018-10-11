@@ -16,9 +16,15 @@ def checkLatestParts(options, verbose=True):
 	configsToGenerate = []
 	latestCheckedEvent = None
 
+	events += jncutils.checkinfo.getErroredEvents()
+
 	for event in events:
 		if not event.process(verbose=verbose):
+			jncutils.checkinfo.addErroredEvent(event)
 			continue
+
+		if event.errored:
+			jncutils.checkinfo.removeErroredEvent(event)
 
 		if event.date and (not latestCheckedEvent or latestCheckedEvent < event.date):
 			latestCheckedEvent = event.date
@@ -28,12 +34,18 @@ def checkLatestParts(options, verbose=True):
 			configsToGenerate.append(cfgid)
 
 
+
+
 	for cfgid in configsToGenerate:
 		print
 		print
 		cfg = wepubutils.ConfigFile(cfgid)
 		cfgdata = cfg.read(verbose=False)
-		wepubutils.EpubProcessor(cfgdata).make()
+		try:
+			wepubutils.EpubProcessor(cfgdata).make()
+		except Exception, ex:
+			print ex
+			pushover("Error generating %s: %s" % (cfgid, ex) )
 
 	if latestCheckedEvent:
 		jncutils.checkinfo.setLastChecked(latestCheckedEvent)

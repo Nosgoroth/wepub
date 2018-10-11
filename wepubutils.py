@@ -418,15 +418,15 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 
 				r = re.search(r"\/c\/([^\/]+)\/?(search|read)?$", url)
 				if not r:
-					raise "Invalid URL for JNC"
+					raise Exception("Invalid URL for JNC")
 				slug = r.group(1)
 				part = jncapi.getPartFromSlug(slug)
 				if not part or not "id" in part:
-					raise "Error retrieving event part"
+					raise Exception("Error retrieving event part")
 				partid = part["id"]
 				partdata = jncapi.getPartData(partid)
 				if not partdata or "dataHTML" not in partdata:
-					raise "Error retrieving event part data"
+					raise Exception("Error retrieving event part data")
 
 				html = partdata["dataHTML"]
 				html = '<html><head></head><body>%s</body>' % html

@@ -12,6 +12,10 @@ JNCAPIEndpoint = "https://api.j-novel.club/api"
 
 
 class EventCheckInfo():
+
+	MAX_RETRY_HOURS = 24
+	HOURS_BETWEEN_ATTEMPTS = 2
+
 	datafn = None
 	data = None
 
@@ -45,6 +49,56 @@ class EventCheckInfo():
 
 	def setLastCheckedNow(self):
 		self.setLastChecked(datetime.now())
+
+	def addErroredEvent(self, event):
+		if "erroredEvents" not in self.data or not isinstance(self.data["erroredEvents"], dict):
+			self.data["erroredEvents"] = {}
+
+		self.data["erroredEvents"][event.eventId] = event.getRawdata()
+		self.save()
+
+	def removeErroredEvent(self, eventId):
+		if isinstance(eventId, Event):
+			eventId = eventId.eventId
+		if "erroredEvents" not in self.data or not isinstance(self.data["erroredEvents"], dict):
+			return False
+		if not eventId in self.data["erroredEvents"]:
+			return False
+		self.data["erroredEvents"].pop(event.eventId, None)
+		self.save()
+		return True
+
+	def clearErroredEvents(self):
+		self.data["erroredEvents"] = None
+		self.save()
+
+	def getErroredEvents(self):
+		if "erroredEvents" not in self.data or not isinstance(self.data["erroredEvents"], dict):
+			return []
+
+		now = datetime.now()
+
+		maxretries = self.MAX_RETRY_HOURS / self.HOURS_BETWEEN_ATTEMPTS
+
+		events = []
+
+		for eventId, rawevent in self.data["erroredEvents"].iteritems():
+			event = Event(rawevent)
+
+			if event.lastErrorDate:
+				td = now - event.lastErrorDate
+				th = td.total_seconds() / (60*60)
+				if th < self.HOURS_BETWEEN_ATTEMPTS:
+					continue
+
+			if event.errorCounter >= maxretries:
+				#self.removeErroredEvent(event)
+				continue
+
+			event.setErrored()
+			events.append(event)
+
+		return events
 
 
 
@@ -113,6 +167,7 @@ class EventType():
 
 
 class Event():
+	rawdata = None
 	eventType = EventType.Unknown
 	eventId = None
 	name = None
@@ -123,12 +178,23 @@ class Event():
 	details = None
 	linkFragment = None
 
+	errorCounter = 0
+	errored = False
+	lastErrorDate = None
+
 	def __init__(self, rawdata):
+		self.rawdata = rawdata
 		date = rawdata["date"]
 		self.name = rawdata["name"]
 		self.details = rawdata["details"]
 		self.eventId = rawdata["id"]
 		self.linkFragment = rawdata["linkFragment"]
+
+		if "errorCounter" in self.rawdata:
+			self.errorCounter = self.rawdata["errorCounter"]
+
+		if "lastErrorDate" in self.rawdata:
+			self.lastErrorDate = datetime.strptime(self.rawdata["lastErrorDate"], "%Y-%m-%dT%H:%M:%S")
 
 		r = re.search(r'^([\d\-]+T[\d\:]+)\.', date)
 		self.date = datetime.strptime(r.group(1), "%Y-%m-%dT%H:%M:%S")
@@ -153,6 +219,20 @@ class Event():
 			self.name += " Vol. "+str(self.volumeNum)
 		elif not self.volumeNum and r:
 			self.volumeNum = int(r.group(2))
+
+	def getRawdata(self):
+		if self.errorCounter > 0:
+			self.rawdata["errorCounter"] = self.errorCounter
+		if self.lastErrorDate:
+			self.rawdata["lastErrorDate"] = self.lastErrorDate.strftime("%Y-%m-%dT%H:%M:%S")
+		return self.rawdata
+
+	def setErrored(self):
+		self.errored = True
+
+	def incrementErrorCounter(self):
+		self.lastErrorDate = datetime.now()
+		self.errorCounter += 1
 
 	def process(self, verbose=True):
 		try:
@@ -180,8 +260,7 @@ class Event():
 				saved = cfg.write(cfgdata, createNew=True, verbose=False)
 				cfgdata = cfg.read(verbose=False)
 				if not saved or not cfgdata:
-					print "ERROR creating new config!"
-					self.pushoverError("ERROR creating new config")
+					self.setError("ERROR creating new config")
 					return False
 
 			url = self.getUrl()
@@ -190,20 +269,18 @@ class Event():
 				cfgdata["urls"] = []
 			if url in cfgdata["urls"]:
 				print "Part already exists! Ignoring..."
-				return False
+				return True
 			cfgdata["urls"].append(url)
 			cfgdata["urls"] = sortContentUrlsByPartNumber(cfgdata["urls"])
 			if cfg.write(cfgdata, verbose=False):
 				pass
 			else:
-				print "FAILED to add URL to config"
-				self.pushoverError("FAILED to add URL to config")
+				self.setError("FAILED to add URL to config")
 				return False
 
 			title, html = self.getPartContent()
 			if not html:
-				print "FAILED to retrieve part content"
-				self.pushoverError("FAILED to retrieve part content")
+				self.setError("FAILED to retrieve part content")
 				return False
 
 			print "Saving content to cache...",
@@ -222,6 +299,12 @@ class Event():
 			print
 			print
 			return False
+			self.setError("EXCEPTION: "+e)
+
+	def setError(self, errorMsg):
+		print "ERROR:", errorMsg
+		self.incrementErrorCounter()
+		self.pushoverError(errorMsg)
 
 	def pushoverOk(self):
 		pushover( "[JNC] %s %s" % (self.name, self.details) )

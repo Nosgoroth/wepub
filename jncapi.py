@@ -33,6 +33,8 @@ def request(url, data=None, usePost=False, requireAuth=False, verbose=True):
 			#print "USING authtoken:", authtoken
 			headers={"Authorization": authtoken}
 
+		#print url, data
+
 		if usePost:
 			r = requests.post(Endpoint+url, data=data, headers=headers)
 		else:
