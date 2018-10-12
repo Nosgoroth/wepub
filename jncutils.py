@@ -43,21 +43,49 @@ class EventCheckInfo():
 		t = self.data["lastChecked"] if "lastChecked" in self.data else "1970-01-01 00:00"
 		return datetime.strptime(t, "%Y-%m-%d %H:%M")
 
-	def setLastChecked(self, dt):
+	def setLastChecked(self, dt, nosave=False):
 		self.data["lastChecked"] = dt.strftime("%Y-%m-%d %H:%M")
-		self.save()
+		if not nosave: self.save()
 
-	def setLastCheckedNow(self):
-		self.setLastChecked(datetime.now())
+	def setLastCheckedNow(self, nosave=False):
+		self.setLastChecked(datetime.now(), nosave=nosave)
 
-	def addErroredEvent(self, event):
+	def addSuccessfulEvent(self, event, nosave=False):
+		self.removeErroredEvent(event, nosave=True)
+
+		if "successfulEvents" not in self.data or not isinstance(self.data["successfulEvents"], dict):
+			self.data["successfulEvents"] = {}
+
+		self.data["successfulEvents"][event.eventId] = event.getRawdata()
+		self.trimSuccessfulEvents(nosave=nosave)
+
+
+	def trimSuccessfulEvents(self, limit=10, nosave=False):
+		if "successfulEvents" not in self.data or not isinstance(self.data["successfulEvents"], dict):
+			self.data["successfulEvents"] = {}
+		x = []
+		for eventId in self.data["successfulEvents"]:
+			event = Event(self.data["successfulEvents"][eventId])
+
+			x.append((event, event.date))
+		x = sorted(x, key=lambda x: x[1])
+		x = [t[0] for t in x]
+
+		self.data["successfulEvents"] = {}
+		for event in x[:limit]:
+			self.data["successfulEvents"][event.eventId] = event.getRawdata()
+
+		if not nosave: self.save()
+		
+
+	def addErroredEvent(self, event, nosave=False):
 		if "erroredEvents" not in self.data or not isinstance(self.data["erroredEvents"], dict):
 			self.data["erroredEvents"] = {}
 
 		self.data["erroredEvents"][event.eventId] = event.getRawdata()
-		self.save()
+		if not nosave: self.save()
 
-	def removeErroredEvent(self, eventId):
+	def removeErroredEvent(self, eventId, nosave=False):
 		if isinstance(eventId, Event):
 			eventId = eventId.eventId
 		if "erroredEvents" not in self.data or not isinstance(self.data["erroredEvents"], dict):
@@ -65,14 +93,14 @@ class EventCheckInfo():
 		if not eventId in self.data["erroredEvents"]:
 			return False
 		self.data["erroredEvents"].pop(event.eventId, None)
-		self.save()
+		if not nosave: self.save()
 		return True
 
-	def clearErroredEvents(self):
+	def clearErroredEvents(self, nosave=False):
 		self.data["erroredEvents"] = None
-		self.save()
+		if not nosave: self.save()
 
-	def getErroredEvents(self):
+	def getErroredEvents(self, ignoreEvents=[]):
 		if "erroredEvents" not in self.data or not isinstance(self.data["erroredEvents"], dict):
 			return []
 
@@ -81,9 +109,13 @@ class EventCheckInfo():
 		maxretries = self.MAX_RETRY_HOURS / self.HOURS_BETWEEN_ATTEMPTS
 
 		events = []
+		eventIdsToIgnore = [e.eventId for e in ignoreEvents]
 
 		for eventId, rawevent in self.data["erroredEvents"].iteritems():
 			event = Event(rawevent)
+
+			if event.eventId in eventIdsToIgnore:
+				continue
 
 			if event.lastErrorDate:
 				td = now - event.lastErrorDate
@@ -95,7 +127,7 @@ class EventCheckInfo():
 				#self.removeErroredEvent(event)
 				continue
 
-			event.setErrored()
+			event.setAsErrored()
 			events.append(event)
 
 		return events
@@ -166,6 +198,12 @@ class EventType():
 	Other = 3
 
 
+class EventProcessResultType():
+	Error = 0
+	Successful = 1
+	Skipped = 2
+
+
 class Event():
 	rawdata = None
 	eventType = EventType.Unknown
@@ -227,7 +265,7 @@ class Event():
 			self.rawdata["lastErrorDate"] = self.lastErrorDate.strftime("%Y-%m-%dT%H:%M:%S")
 		return self.rawdata
 
-	def setErrored(self):
+	def setAsErrored(self):
 		self.errored = True
 
 	def incrementErrorCounter(self):
@@ -239,6 +277,19 @@ class Event():
 			if verbose:
 				print
 				print "Found %s %s" % (self.name, self.details)
+
+			url = self.getUrl()
+
+			#We check that the part is available FIRST
+			try:
+				print "Retrieving content..."
+				wepubutils.retrieveUrl(url)
+			except:
+				self.setError("FAILED to retrieve part content")
+				return EventProcessResultType.Error
+
+
+			# Then we create the config file
 
 			cfgid = self.toConfigFileName()
 			cfg = wepubutils.ConfigFile(cfgid)
@@ -261,7 +312,10 @@ class Event():
 				cfgdata = cfg.read(verbose=False)
 				if not saved or not cfgdata:
 					self.setError("ERROR creating new config")
-					return False
+					return EventProcessResultType.Error
+
+			#We add the URL to the config last so that it doesn't stay added in error
+			#  when the part isn't available yet
 
 			url = self.getUrl()
 
@@ -269,28 +323,18 @@ class Event():
 				cfgdata["urls"] = []
 			if url in cfgdata["urls"]:
 				print "Part already exists! Ignoring..."
-				return True
+				return EventProcessResultType.Skipped
 			cfgdata["urls"].append(url)
 			cfgdata["urls"] = sortContentUrlsByPartNumber(cfgdata["urls"])
 			if cfg.write(cfgdata, verbose=False):
 				pass
 			else:
 				self.setError("FAILED to add URL to config")
-				return False
+				return EventProcessResultType.Error
 
-			title, html = self.getPartContent()
-			if not html:
-				self.setError("FAILED to retrieve part content")
-				return False
+			self.setSuccess()
 
-			print "Saving content to cache...",
-			html = '<html><head></head><body>%s</body>' % html
-			wepubutils.retrieveUrl(url, setCacheContent=html, setCacheReadable=html, setCacheTitle=title)
-			print "done."
-
-			self.pushoverOk()
-
-			return True
+			return EventProcessResultType.Successful
 		except Exception, e:
 			print
 			print "ERROR PROCESSING EVENT"
@@ -298,12 +342,18 @@ class Event():
 			print e
 			print
 			print
-			return False
 			self.setError("EXCEPTION: "+e)
+			return EventProcessResultType.Error
+
+	def setSuccess(self):
+		print "Completed successfully"
+		jncutils.checkinfo.addSuccessfulEvent(event)
+		self.pushoverOk()
 
 	def setError(self, errorMsg):
 		print "ERROR:", errorMsg
 		self.incrementErrorCounter()
+		jncutils.checkinfo.addErroredEvent(event)
 		self.pushoverError(errorMsg)
 
 	def pushoverOk(self):

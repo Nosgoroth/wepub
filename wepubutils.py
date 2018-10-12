@@ -98,7 +98,7 @@ class ConfigFile:
 
 		try:
 			with open(wepubdlpath, "w") as f:
-				json.dump(options, f)
+				json.dump(options, f, sort_keys=True, indent=4, separators=(',', ': '))
 		except IOError:
 			if verbose: print "Couldn't write to config:", self.config
 			return False
@@ -418,15 +418,15 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 
 				r = re.search(r"\/c\/([^\/]+)\/?(search|read)?$", url)
 				if not r:
-					raise Exception("Invalid URL for JNC")
+					raise RetrieveUrlException("Invalid URL for JNC")
 				slug = r.group(1)
 				part = jncapi.getPartFromSlug(slug)
 				if not part or not "id" in part:
-					raise Exception("Error retrieving event part")
+					raise RetrieveUrlException("Error retrieving event part")
 				partid = part["id"]
 				partdata = jncapi.getPartData(partid)
 				if not partdata or "dataHTML" not in partdata:
-					raise Exception("Error retrieving event part data")
+					raise RetrieveUrlException("Error retrieving event part data")
 
 				html = partdata["dataHTML"]
 				html = '<html><head></head><body>%s</body>' % html

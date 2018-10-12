@@ -10,30 +10,63 @@ from pushover import pushover
 def checkLatestParts(options, verbose=True):
 	lastchecked = jncutils.checkinfo.getLastChecked()
 
-	events = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
-	print "Found", len(events)
+	# Get events from API
+	networkEvents = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
+	print "Found", len(networkEvents)
+
+	# Read errored events to process
+	erroredEvents = jncutils.checkinfo.getErroredEvents()
+	if erroredEvents and len(erroredEvents) > 0:
+		print "Also processing", len(erroredEvents), "errored events"
+
+	# If we have the same event in both lists, take the one from the errored list,
+	#   since that one includes error information (like counters)
+	erroredEventIds = [e.eventId for e in erroredEvents]
+	events = [e for e in networkEvents if e.eventId not in erroredEventIds]
+	events += erroredEvents
 
 	configsToGenerate = []
 	latestCheckedEvent = None
 
-	events += jncutils.checkinfo.getErroredEvents()
-
 	for event in events:
-		if not event.process(verbose=verbose):
-			jncutils.checkinfo.addErroredEvent(event)
-			continue
 
-		if event.errored:
-			jncutils.checkinfo.removeErroredEvent(event)
+		result = event.process(verbose=verbose)
 
-		if event.date and (not latestCheckedEvent or latestCheckedEvent < event.date):
-			latestCheckedEvent = event.date
+		shouldRegenerateEpub = False
+		shouldMarkDateAsProcessed = False
+		
+		if result == jncutils.EventProcessResultType.Error:
 
-		cfgid = event.toConfigFileName()
-		if cfgid not in configsToGenerate:
-			configsToGenerate.append(cfgid)
+			# Don't regenerate epub, don't save this date as completed
+			pass 
 
+		elif result == jncutils.EventProcessResultType.Skipped:
 
+			# Don't regenerate epub, but DO save this date
+			shouldMarkDateAsProcessed = True
+
+		elif result == jncutils.EventProcessResultType.Successful:
+
+			# Good! Regenerate and save date.
+			shouldRegenerateEpub = True
+			shouldMarkDateAsProcessed = True
+
+		else:
+
+			# What the frick!?
+			print "Unknown EventProcessResultType", result
+			raise Exception("What the frick!?")
+
+		if shouldMarkDateAsProcessed:
+			if event.date and (not latestCheckedEvent or latestCheckedEvent < event.date):
+				latestCheckedEvent = event.date
+
+		if shouldRegenerateEpub:
+			cfgid = event.toConfigFileName()
+			if cfgid not in configsToGenerate:
+				configsToGenerate.append(cfgid)
+
+		#Done with the loop iteration
 
 
 	for cfgid in configsToGenerate:
@@ -46,6 +79,7 @@ def checkLatestParts(options, verbose=True):
 		except Exception, ex:
 			print ex
 			pushover("Error generating %s: %s" % (cfgid, ex) )
+
 
 	if latestCheckedEvent:
 		jncutils.checkinfo.setLastChecked(latestCheckedEvent)
