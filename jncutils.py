@@ -11,10 +11,16 @@ JNCSite = "https://j-novel.club"
 JNCAPIEndpoint = "https://api.j-novel.club/api"
 
 
+
+
+
+
 class EventCheckInfo():
 
 	MAX_RETRY_HOURS = 24
 	HOURS_BETWEEN_ATTEMPTS = 2
+	MAX_KEEP_SUCCESSFUL_EVENTS = 20
+	MAX_KEEP_ERROR_DAYS = 30
 
 	datafn = None
 	data = None
@@ -60,7 +66,7 @@ class EventCheckInfo():
 		self.trimSuccessfulEvents(nosave=nosave)
 
 
-	def trimSuccessfulEvents(self, limit=10, nosave=False):
+	def trimSuccessfulEvents(self, nosave=False):
 		if "successfulEvents" not in self.data or not isinstance(self.data["successfulEvents"], dict):
 			self.data["successfulEvents"] = {}
 		x = []
@@ -72,7 +78,7 @@ class EventCheckInfo():
 		x = [t[0] for t in x]
 
 		self.data["successfulEvents"] = {}
-		for event in x[:limit]:
+		for event in x[:self.MAX_KEEP_SUCCESSFUL_EVENTS]:
 			self.data["successfulEvents"][event.eventId] = event.getRawdata()
 
 		if not nosave: self.save()
@@ -83,6 +89,8 @@ class EventCheckInfo():
 			self.data["erroredEvents"] = {}
 
 		self.data["erroredEvents"][event.eventId] = event.getRawdata()
+
+		self.trimErroredEvents(nosave=True)
 		if not nosave: self.save()
 
 	def removeErroredEvent(self, eventId, nosave=False):
@@ -111,6 +119,8 @@ class EventCheckInfo():
 		events = []
 		eventIdsToIgnore = [e.eventId for e in ignoreEvents]
 
+		self.trimErroredEvents()
+
 		for eventId, rawevent in self.data["erroredEvents"].iteritems():
 			event = Event(rawevent)
 
@@ -131,6 +141,32 @@ class EventCheckInfo():
 			events.append(event)
 
 		return events
+
+
+	def trimErroredEvents(self, nosave=False):
+		if "erroredEvents" not in self.data or not isinstance(self.data["erroredEvents"], dict):
+			self.data["erroredEvents"] = {}
+
+		# MAX_KEEP_ERROR_DAYS
+		now = datetime.now()
+
+		eventsToRemove = []
+
+		for eventId in self.data["erroredEvents"]:
+			event = Event(self.data["erroredEvents"][eventId])
+			td = now - event.date
+			tdays = td.total_seconds() / (60*60*24)
+			if tdays > self.MAX_KEEP_ERROR_DAYS:
+				eventsToRemove.append(eventId)
+
+		for eventId in eventsToRemove:
+			self.removeErroredEvent(eventId, nosave=True)
+
+		if not nosave: self.save()
+
+
+
+
 
 
 
@@ -188,8 +224,16 @@ class EventGetter():
 
 		return eventobjs
 
+
+
+
+
+
 events = EventGetter()
 checkinfo = EventCheckInfo()
+
+
+
 
 class EventType():
 	Unknown = 0
@@ -202,6 +246,11 @@ class EventProcessResultType():
 	Error = 0
 	Successful = 1
 	Skipped = 2
+
+
+
+
+
 
 
 class Event():
@@ -347,6 +396,7 @@ class Event():
 
 	def setSuccess(self):
 		print "Completed successfully"
+		self.rawdata["successDate"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 		jncutils.checkinfo.addSuccessfulEvent(event)
 		self.pushoverOk()
 
@@ -427,6 +477,12 @@ class Event():
 			print "Error retrieving event part data"
 			return (None, None)
 		return (part["title"], partdata["dataHTML"])
+
+
+
+
+
+
 
 
 
