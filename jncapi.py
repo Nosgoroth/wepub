@@ -3,6 +3,7 @@ import requests
 
 import config
 
+Site = "https://j-novel.club"
 Endpoint = "https://api.j-novel.club/api"
 Cloudfront = "https://d2dq7ifhe7bu0f.cloudfront.net"
 
@@ -95,11 +96,36 @@ def getSeries(seriesId):
 	}
 	return request("/series/findOne", data)
 
+def getSeriesFromSlug(slug):
+	datafilter = {
+		"where": {
+			"titleslug": slug
+		},
+		"include":[{"volumes": "parts"}]
+	}
+	data = {
+		"filter": json.dumps(datafilter)
+	}
+	return request("/series/findOne", data)
+
 def getVolume(volumeId):
 	datafilter = {
 		"where": {
 			"id": volumeId
-		}
+		},
+		"include":["parts"]
+	}
+	data = {
+		"filter": json.dumps(datafilter)
+	}
+	return request("/volumes/findOne", data)
+
+def getVolumeFromSlug(slug):
+	datafilter = {
+		"where": {
+			"titleslug": slug
+		},
+		"include":["parts"]
 	}
 	data = {
 		"filter": json.dumps(datafilter)

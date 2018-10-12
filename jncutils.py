@@ -7,12 +7,6 @@ from datetime import datetime
 import jncapi, wepubutils
 from pushover import pushover
 
-JNCSite = "https://j-novel.club"
-JNCAPIEndpoint = "https://api.j-novel.club/api"
-
-
-
-
 
 
 class EventCheckInfo():
@@ -337,10 +331,16 @@ class Event():
 				self.setError("FAILED to retrieve part content")
 				return EventProcessResultType.Error
 
+			#We try to get the important values
+			volume = self.getVolume()
+			url = self.getUrl()
 
 			# Then we create the config file
+			if volume:
+				cfgid = volumeNameToConfigFileName(volume["title"])
+			else:
+				cfgid = self.toConfigFileName()
 
-			cfgid = self.toConfigFileName()
 			cfg = wepubutils.ConfigFile(cfgid)
 			cfgdata = cfg.read(verbose=False)
 
@@ -350,12 +350,12 @@ class Event():
 				cfgdata["outfile"] = "out/jnc/"+self.toEpubFileName()+".epub"
 				cfgdata["urls"] = []
 
-				volume = self.getVolume()
 				if volume:
-					cfgdata["author"] = volume["author"]
-					cfgdata["cover"] = jncapi.getCoverFullUrlForAttachmentContainer(volume)
-				else:
-					print "Couldn't get volume data"
+					cfgdata = generateVolumeConfigDict(volume)
+
+					cfgdata["urls"] = generateVolumeConfigDict(volume)
+					if url in cfgdata["urls"]:
+						cfgdata["urls"].remove(url)
 
 				saved = cfg.write(cfgdata, createNew=True, verbose=False)
 				cfgdata = cfg.read(verbose=False)
@@ -366,7 +366,6 @@ class Event():
 			#We add the URL to the config last so that it doesn't stay added in error
 			#  when the part isn't available yet
 
-			url = self.getUrl()
 
 			if not "urls" in cfgdata:
 				cfgdata["urls"] = []
@@ -425,17 +424,13 @@ class Event():
 		return (self.eventType == EventType.Volume)
 
 	def getUrl(self):
-		return JNCSite+self.linkFragment
+		return jncapi.Site+self.linkFragment
 
 	def toConfigFileName(self):
-		n = re.sub(r'[^\d\w]', "_", self.name)
-		n = re.sub(r'_+', '_', n)
-		return "jnc_"+n
+		return volumeNameToConfigFileName(self.name)
 
 	def toEpubFileName(self):
-		n = re.sub(r'[^\d\w\.\s\_\-\,\!]', "_", self.name)
-		n = re.sub(r'_+', '_', n)
-		return n
+		return volumeNameToEpubFilename(self.name)
 
 	def getSeries(self):
 		if not self.isPart():
@@ -496,5 +491,31 @@ def sortContentUrlsByPartNumber(urls):
 		x.append((n, url))
 	x = sorted(x, key=lambda x: x[0])
 	return [t[1] for t in x]
-			
 
+def volumeNameToConfigFileName(name):
+	n = re.sub(r'[^\d\w]', "_", name)
+	n = re.sub(r'_+', '_', n)
+	return "jnc_"+n
+
+def volumeNameToEpubFilename(name):
+	n = re.sub(r'[^\d\w\.\s\_\-\,\!]', "_", name)
+	n = re.sub(r'_+', '_', n)
+	return n
+
+
+def generateVolumeConfigDict(volume):
+	cfgdata = {}
+	cfgdata["title"] = volume["title"]
+	cfgdata["author"] = volume["author"]
+	cfgdata["cover"] = jncapi.getCoverFullUrlForAttachmentContainer(volume)
+	cfgdata["outfile"] = "out/jnc/"+volumeNameToEpubFilename(volume["title"])+".epub"
+	cfgdata["urls"] = []
+
+	return cfgdata
+
+def getVolumeUrls(volume):
+	urls = []
+	for part in volume["parts"]:
+		urls.append(jncapi.Site+"/c/"+part["titleslug"])
+
+	return sortContentUrlsByPartNumber(urls)

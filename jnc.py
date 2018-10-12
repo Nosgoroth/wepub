@@ -1,9 +1,10 @@
-import os, sys
+import os, sys, re
 from optparse import OptionParser
 
 import jncutils, jncapi
 import wepubutils
 from pushover import pushover
+from pprint import pprint
 
 
 
@@ -87,6 +88,67 @@ def checkLatestParts(options, verbose=True):
 
 
 
+def generateVolumeConfigsFromSeriesUrl(url):
+	r = re.search(r'https?\:\/\/[^\/]+\/s\/([^\/?]+)', url)
+	if not r:
+		print "Invalid URL"
+		return
+	slug = r.group(1)
+	print "Using slug:", slug
+
+	print "Retrieving series..."
+	series = jncapi.getSeriesFromSlug(slug)
+	if not series:
+		print "ERROR: Unable to retrieve series"
+		return
+
+	for volume in series["volumes"]:
+		print 
+		print volume["title"]
+
+		generateVolumeConfig(volume)
+
+
+def generateVolumeConfigFromUrl(url):
+	r = re.search(r'https?\:\/\/[^\/]+\/v\/([^\/?]+)', url)
+	if not r:
+		raise Exception("Invalid URL")
+	slug = r.group(1)
+	print "Using slug:", slug
+
+	print "Retrieving volume..."
+	volume = jncapi.getVolumeFromSlug(slug)
+	if not volume:
+		raise Exception("ERROR: Unable to retrieve volume")
+
+	return generateVolumeConfig(volume)
+
+def generateVolumeConfig(volume):
+	cfgid = jncutils.volumeNameToConfigFileName(volume["title"])
+	print "Using config name:", cfgid
+
+	cfg = wepubutils.ConfigFile(cfgid)
+	cfgdata = cfg.read(verbose=False)
+
+	if cfgdata:
+		print "Config already exists!"
+		return False
+
+	cfgdata = jncutils.generateVolumeConfigDict(volume)
+
+	cfgdata["urls"] = jncutils.getVolumeUrls(volume)
+
+	saved = cfg.write(cfgdata, createNew=True, verbose=False)
+	cfgdata = cfg.read(verbose=False)
+	if not saved or not cfgdata:
+		raise Exception("ERROR creating new config!")
+
+	wepubutils.EpubProcessor(cfgdata).make()
+	return True
+
+
+
+
 
 def printLatestEvents(options):
 	events = jncutils.events.getLatest(filterType=None, requestLimit=int(options.limit))
@@ -110,6 +172,8 @@ def main():
 	parser.add_option("--limit", action="store", dest="limit", default=25, help="How many items to get")
 	parser.add_option("--check", action="store_true", dest="check", help="Check JNC events and auto add to wepub config")
 	parser.add_option("--next", action="store_true", dest="next", help="Print upcoming JNC events")
+	parser.add_option("--genvolume", action="store", dest="genvolume", help="Generate config from volume URL")
+	parser.add_option("--genseries", action="store", dest="genseries", help="Generate configs from series URL")
 
 	(options, args) = parser.parse_args()
 
@@ -121,6 +185,10 @@ def main():
 
 	if options.check:
 		checkLatestParts(options)
+	elif options.genvolume:
+		generateVolumeConfigFromUrl(options.genvolume)
+	elif options.genseries:
+		generateVolumeConfigsFromSeriesUrl(options.genseries)
 	elif options.next:
 		printNextEvents(options)
 	else:
