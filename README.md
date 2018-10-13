@@ -3,7 +3,7 @@
 
 This scripts downloads a series of URLs, strips unnecessary content from them and makes a nice epub/mobi file. It can also send it to your Kindle device.
 
-Heavily based on [web2epub](https://github.com/rupeshk/web2epub) by **rupeshk**, this script adds the following:
+Originally based on [web2epub](https://github.com/rupeshk/web2epub) by **rupeshk**, this script adds the following:
 
 * Read book configuration from config files
 * Reduced character encoding issues, hopefully
@@ -12,12 +12,13 @@ Heavily based on [web2epub](https://github.com/rupeshk/web2epub) by **rupeshk**,
 * Caching
 * Convert to mobi via Calibre
 * Send to Kindle via email
+* J-Novel Club support
 
-Please do contribute!
+This code is provided as-is. If you encounter an issue, please file it in Github, but I might not have the time to fix it myself. Please do contribute!
 
 ## Prerequisites
 
-This script works with Python 2.7.x.
+This script works with Python 2.7.x because I'm stubborn and bad with change.
 
 ### Packages to install
 
@@ -168,7 +169,7 @@ Directly send to Kindle with this script.
 
 ### Credentials
 
-Create a `kindleconfig.py` file. You can just rename the `kindleconfig_example.py` file provided. Fill it with your credentials and email addresses as specified.
+Create a `config.py` file. You can just rename the `config_example.py` file provided. Fill it with your credentials and email addresses as specified.
 
 If you want to use a different SMTP server that's not Gmail, you'll have to code it in `sendtokindle.py`.
 
@@ -193,6 +194,123 @@ python sendtokindle.py ~/myebook.epub
 ```
 
 If, when converting to mobi, you get odd looking paragraphs, you might want to use the `--fix-paragraphs` option. You can use this option in both `wepub.py` and `sendtokindle.py`.
+
+## J-Novel Club support
+
+[J-Novel Club](https://j-novel.club/howitworks) (JNC) is a light novel translation and publishing company that allows members to read weekly parts of a volume as it's translated before its final release as an epub in the usual stores. The JNC integration takes two forms:
+
+* Support for JNC part URLs in wepub configs
+* A `jnc.py` script that can create and modify wepub configs based on different events
+
+Both require a JNC account with a paid membership in order to access all available parts -- otherwise, you will only be able to access parts available to free members, which are usually only the first part of a volume.
+
+This script uses JNC's undocumented API that powers both their website and their app -- both of which kind of suck at the time of writing, so you can generate epubs with this and read them in a better reader.
+
+### Authentication
+
+Simply fill in the variables in `config.py`:
+
+```py
+#Your J-Novel Club email address
+jnc_email = "" 
+#Your J-Novel Club password
+jnc_password = ""
+```
+
+### JNC part URLs in wepub configs
+
+There's no mystery here: add a URL to a wepub config and run it.
+
+```js
+{
+    "title": "Realist Hero Vol. 1",
+    "author": "Dojyomaru",
+    "outfile": "out/realist_hero_1.epub",
+    "urls": [
+        "https://j-novel.club/c/how-a-realist-hero-rebuilt-the-kingdom-volume-1-part-1"
+    ]
+}
+```
+
+### The jnc.py script
+
+This script can be called from the command line, same as `wepub.py`. Its functionality is described below:
+
+#### Important: about events
+
+Events are JNC releases, and can be parts or ebook volumes. This script only deals in part releases.
+
+By default the script requests 25 events. You can change this behavior with the `--limit` parameter.
+
+```bash
+python jnc.py --limit 5
+```
+
+#### Important: about the cache
+
+The script will aggresively cache its calls to retrieve the events list, even when search parameters are different. If you have performed a custom request, for example with a different result limit, be sure to append `--nocache` to the next request so that the previous cached request isn't used. By default, the cache's TTL is 60 minutes.
+
+```bash
+python jnc.py --nocache
+```
+
+#### Print the latest events
+
+Prints the latest events in the console. 
+
+```bash
+python jnc.py
+```
+
+#### Print upcoming events
+
+Prints the next upcoming events in the console.
+
+```bash
+python jnc.py --next
+```
+
+#### Check events and generate configs
+
+Checks the latest events and adds the relevant parts to the corresponding volume configs. If the configs don't exist, it creates them and prefills them with any previous parts. Then, it generates epubs for the modified/created configs.
+
+After the executions ends, the script will remember the date of the latest successfully processed event so that they aren't processed again. Additionally, if a part download fails (maybe because it's not available yet despite the event date), it will remember it to test it in the next run. In order to reset this memory, use the `--cleardata` option.
+
+```bash
+python jnc.py --check
+```
+
+#### Download a volume or a whole series
+
+Useful for monthly catchups. Simply provide the volume URL after the `--genvolume` option, or the series URL after the `--genseries` option.
+
+```bash
+python jnc.py --genvolume https://j-novel.club/v/how-a-realist-hero-rebuilt-the-kingdom-volume-1/
+```
+
+```bash
+python jnc.py --genseries https://j-novel.club/s/how-a-realist-hero-rebuilt-the-kingdom/
+```
+
+### Notifications
+
+The JNC script integrates [Pushover](https://pushover.net), a paid (one-time fee) service for custom notifications. In order to use it, login into their website with your account, generate a new Pushover application (or use an existing one), grab the user key and application API token, and paste them in `config.py`:
+
+```py
+USE_PUSHOVER = True
+PUSHOVER_TOKEN = "123456789012345678901234567890"
+PUSHOVER_USER = "qwertyuiopasdfghjklzxcvbnm"
+```
+
+(Don't forget to change `USE_PUSHOVER` to `True`!)
+
+By doing this, you will receive a notification in your devices where you have installed the Pushover app whenever a part is downloaded or an error happens.
+
+### Tips and tricks
+
+You could use a cronjob (or any other way of running a script periodically) to make `jnc.py` check for released parts and generate the corresponding epubs. Additionally, you could symlink the `out` folder to a netwoerk-available location (like Dropbox) to make these epubs available to ebook readers that support network locations.
+
+
 
 ## Known snags
 
