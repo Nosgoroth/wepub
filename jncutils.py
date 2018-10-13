@@ -354,6 +354,7 @@ class Event():
 			if not cfgdata:
 				cfgdata = {}
 				cfgdata["title"] = self.name
+				cfgdata["author"] = "Unknown"
 				cfgdata["outfile"] = "out/jnc/"+self.toEpubFileName()+".epub"
 				cfgdata["urls"] = []
 
