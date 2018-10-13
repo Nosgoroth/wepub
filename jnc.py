@@ -63,7 +63,7 @@ def checkLatestParts(options, verbose=True):
 				latestCheckedEvent = event.date
 
 		if shouldRegenerateEpub:
-			cfgid = event.toConfigFileName()
+			cfgid = event.processedCfgid
 			if cfgid not in configsToGenerate:
 				configsToGenerate.append(cfgid)
 
@@ -79,7 +79,8 @@ def checkLatestParts(options, verbose=True):
 			wepubutils.EpubProcessor(cfgdata).make()
 		except Exception, ex:
 			print ex
-			pushover("Error generating %s: %s" % (cfgid, ex) )
+			#raise
+			pushover("[JNC] Error generating %s: %s" % (cfgid, ex) )
 
 
 	if latestCheckedEvent:

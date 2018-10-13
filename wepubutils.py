@@ -119,11 +119,16 @@ class EpubProcessor:
 
 	def __init__(self, options):
 
+		if not options:
+			raise Exception("Can't process EPUB if config is empty")
+
 		if type(options) is dict:
 			options = ObjectDict(options)
 
-		try: x = options.title_as_header
-		except: setattr(options, "title_as_header", True)
+		try:
+			x = options.title_as_header
+		except:
+			setattr(options, "title_as_header", True)
 
 		try: x = options.versionid
 		except: setattr(options, "versionid", None)

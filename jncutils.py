@@ -261,6 +261,8 @@ class Event():
 	details = None
 	linkFragment = None
 
+	processedCfgid = None
+
 	errorCounter = 0
 	errored = False
 	lastErrorDate = None
@@ -343,6 +345,8 @@ class Event():
 			else:
 				print "Unable to retrieve volume"
 				cfgid = self.toConfigFileName()
+
+			self.processedCfgid = cfgid
 
 			cfg = wepubutils.ConfigFile(cfgid)
 			cfgdata = cfg.read(verbose=False)

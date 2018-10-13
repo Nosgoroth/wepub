@@ -5,5 +5,8 @@ readability/
 covers/
 out
 out/
-configs
+configs/*
+!configs/__init__.py
+!configs/example.py
+!configs/example.wepubdl
 .*.json
