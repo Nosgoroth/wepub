@@ -94,7 +94,7 @@ class EventCheckInfo():
 			return False
 		if not eventId in self.data["erroredEvents"]:
 			return False
-		self.data["erroredEvents"].pop(event.eventId, None)
+		self.data["erroredEvents"].pop(eventId, None)
 		if not nosave: self.save()
 		return True
 
@@ -187,12 +187,14 @@ class EventGetter():
 
 		else:
 
+			utcnow = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 			filterlimit = requestLimit if requestLimit is not None else 200
+
 			url = "/events?filter[limit]="+str(filterlimit)
 			if futureEvents:
-				url += "&filter[order]=date%20ASC&filter[where][date][gt]="+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+				url += "&filter[order]=date%20ASC&filter[where][date][gt]="+utcnow
 			else:
-				url += "&filter[order]=date%20DESC&filter[where][date][lt]="+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+				url += "&filter[order]=date%20DESC&filter[where][date][lt]="+utcnow
 			
 			#print url
 			print "Getting latest events...",
@@ -332,13 +334,14 @@ class Event():
 				return EventProcessResultType.Error
 
 			#We try to get the important values
-			volume = self.getVolume()
 			url = self.getUrl()
+			volume = self.getVolume()
 
 			# Then we create the config file
 			if volume:
 				cfgid = volumeNameToConfigFileName(volume["title"])
 			else:
+				print "Unable to retrieve volume"
 				cfgid = self.toConfigFileName()
 
 			cfg = wepubutils.ConfigFile(cfgid)
@@ -353,7 +356,7 @@ class Event():
 				if volume:
 					cfgdata = generateVolumeConfigDict(volume)
 
-					cfgdata["urls"] = generateVolumeConfigDict(volume)
+					cfgdata["urls"] = getVolumeUrls(volume)
 					if url in cfgdata["urls"]:
 						cfgdata["urls"].remove(url)
 
@@ -390,19 +393,20 @@ class Event():
 			print e
 			print
 			print
-			self.setError("EXCEPTION: "+e)
+			self.setError("EXCEPTION: "+str(e))
+			#raise
 			return EventProcessResultType.Error
 
 	def setSuccess(self):
 		print "Completed successfully"
 		self.rawdata["successDate"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-		jncutils.checkinfo.addSuccessfulEvent(event)
+		checkinfo.addSuccessfulEvent(self)
 		self.pushoverOk()
 
 	def setError(self, errorMsg):
 		print "ERROR:", errorMsg
 		self.incrementErrorCounter()
-		jncutils.checkinfo.addErroredEvent(event)
+		checkinfo.addErroredEvent(self)
 		self.pushoverError(errorMsg)
 
 	def pushoverOk(self):

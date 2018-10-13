@@ -82,6 +82,7 @@ def getPartFromSlug(slug):
 	# id, serieid, volumeid
 
 def getPartData(partId):
+	#print "getPartData:", partId
 	#https://api.j-novel.club/api/parts/5bac40ac45442dd0763fab07/partData
 	return request("/parts/%s/partData" % partId, requireAuth=True)
 
