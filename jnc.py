@@ -9,10 +9,12 @@ from pprint import pprint
 
 
 def checkLatestParts(options, verbose=True):
-	lastchecked = jncutils.checkinfo.getLastChecked()
+	lastprocessed = jncutils.checkinfo.getLastProcessed()
+
+	jncutils.checkinfo.setLastCheckedNow()
 
 	# Get events from API
-	networkEvents = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastchecked, requestLimit=int(options.limit))
+	networkEvents = jncutils.events.getLatest(filterType=jncutils.EventType.Part, minDate=lastprocessed, requestLimit=int(options.limit))
 	print "Found", len(networkEvents)
 
 	# Read errored events to process
@@ -27,7 +29,7 @@ def checkLatestParts(options, verbose=True):
 	events += erroredEvents
 
 	configsToGenerate = []
-	latestCheckedEvent = None
+	latestProcessedEvent = None
 
 	for event in events:
 
@@ -59,8 +61,8 @@ def checkLatestParts(options, verbose=True):
 			raise Exception("What the frick!?")
 
 		if shouldMarkDateAsProcessed:
-			if event.date and (not latestCheckedEvent or latestCheckedEvent < event.date):
-				latestCheckedEvent = event.date
+			if event.date and (not latestProcessedEvent or latestProcessedEvent < event.date):
+				latestProcessedEvent = event.date
 
 		if shouldRegenerateEpub:
 			cfgid = event.processedCfgid
@@ -83,8 +85,8 @@ def checkLatestParts(options, verbose=True):
 			pushover("[JNC] Error generating %s: %s" % (cfgid, ex) )
 
 
-	if latestCheckedEvent:
-		jncutils.checkinfo.setLastChecked(latestCheckedEvent)
+	if latestProcessedEvent:
+		jncutils.checkinfo.setLastProcessed(latestProcessedEvent)
 
 
 

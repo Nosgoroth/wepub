@@ -310,6 +310,7 @@ By doing this, you will receive a notification in your devices where you have in
 
 You could use a cronjob (or any other way of running a script periodically) to make `jnc.py` check for released parts and generate the corresponding epubs. Additionally, you could symlink the `out` folder to a netwoerk-available location (like Dropbox) to make these epubs available to ebook readers that support network locations.
 
+Additionally, you can read `.jnceventcheckinfo.json` from another script to read status information, such as the latest successfully processed parts, any errored parts awaitng more processing in the next run, the last time the script ran...
 
 
 ## Known snags

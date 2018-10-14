@@ -50,6 +50,19 @@ class EventCheckInfo():
 	def setLastCheckedNow(self, nosave=False):
 		self.setLastChecked(datetime.now(), nosave=nosave)
 
+
+	def getLastProcessed(self):
+		t = self.data["lastProcessed"] if "lastProcessed" in self.data else "1970-01-01 00:00"
+		return datetime.strptime(t, "%Y-%m-%d %H:%M")
+
+	def setLastProcessed(self, dt, nosave=False):
+		self.data["lastProcessed"] = dt.strftime("%Y-%m-%d %H:%M")
+		if not nosave: self.save()
+
+	def setLastProcessedNow(self, nosave=False):
+		self.setLastProcessed(datetime.now(), nosave=nosave)
+
+
 	def addSuccessfulEvent(self, event, nosave=False):
 		self.removeErroredEvent(event, nosave=True)
 
