@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
 # Standard modules
-import os, sys, re, time, mimetypes, urlparse, zipfile, cgi, hashlib, urllib, json, importlib
+import os, sys, re, time, mimetypes, urlparse, zipfile, cgi, hashlib, urllib, importlib
 # Third party modules
 import requests
+try:
+	import jstyleson as json
+except:
+	import json
 try:
 	from readability.readability import Document
 except:
@@ -81,6 +85,19 @@ class ConfigFile:
 
 	def clearReadCache(self):
 		self.readcache = None
+
+	def addUrl(self, url, verbose=True):
+		wepubconfig = self.read()
+		if not self.valid or not wepubconfig:
+			if verbose: print "Config file is not valid"
+			return False
+		if not "urls" in wepubconfig:
+			wepubconfig["urls"] = []
+		if url in wepubconfig["urls"]:
+			if verbose: print "URL already in config"
+			return False
+		wepubconfig["urls"].append(url)
+		return self.write(wepubconfig, verbose=verbose)
 
 
 	def write(self, options, createNew=False, verbose=True):
@@ -161,7 +178,7 @@ class EpubProcessor:
 		# This index file itself is referenced in the META_INF/container.xml file
 		self.epub.writestr("META-INF/container.xml", wepubtemplates.container_tpl)
 
-		self.epub.writestr('OEBPS/cover.html', wepubtemplates.cover_tpl % self.info)
+		self.epub.writestr('OEBPS/cover.html', sanitizeStringEncoding(wepubtemplates.cover_tpl % self.info) )
 		if self.cover is not None:
 			self.epub.write(
 				os.path.abspath(self.cover),
@@ -182,8 +199,8 @@ class EpubProcessor:
 
 		# Finally, write the index and toc
 		self.epub.writestr('OEBPS/stylesheet.css', wepubtemplates.stylesheet_tpl)
-		self.epub.writestr('OEBPS/Content.opf', wepubtemplates.index_tpl % self.info)
-		self.epub.writestr('OEBPS/toc.ncx', wepubtemplates.toc_tpl % self.info)
+		self.epub.writestr('OEBPS/Content.opf', sanitizeStringEncoding(wepubtemplates.index_tpl % self.info) )
+		self.epub.writestr('OEBPS/toc.ncx', sanitizeStringEncoding(wepubtemplates.toc_tpl % self.info) )
 
 		self.epub.close()
 
@@ -286,9 +303,11 @@ class EpubProcessor:
 
 	def writePage(self, content, title, index, baseUrl=None):
 
+		esctitle = safeEscape(title)
+
 		manifest = '<item id="article_%s" href="article_%s.html" media-type="application/xhtml+xml"/>\n' % (index+1,index+1)
 		spine = '<itemref idref="article_%s" />\n' % (index+1)
-		toc = '<navPoint id="navpoint-%s" playOrder="%s"> <navLabel> <text>%s</text> </navLabel> <content src="article_%s.html"/> </navPoint>' % (index+2,index+2,cgi.escape(title),index+1)
+		toc = '<navPoint id="navpoint-%s" playOrder="%s"> <navLabel> <text>%s</text> </navLabel> <content src="article_%s.html"/> </navPoint>' % (index+2,index+2,esctitle,index+1)
 
 		soup = BeautifulSoup(content)
 		#Add xml namespace
@@ -403,11 +422,11 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 	if not os.path.isdir("cache"): os.mkdir("cache")
 
 	if setCacheContent:
-		with open(htmlcachefile, 'w') as f: f.write(setCacheContent.encode('utf-8'))
+		with open(htmlcachefile, 'w') as f: f.write(setCacheContent.encode('utf-8', errors='ignore'))
 	if setCacheReadable:
-		with open(rdbcachefile, 'w') as f: f.write(setCacheReadable.encode('utf-8'))
+		with open(rdbcachefile, 'w') as f: f.write(setCacheReadable.encode('utf-8', errors='ignore'))
 	if setCacheTitle:
-		with open(rdbtcachefile, 'w') as f: f.write(setCacheTitle.encode('utf-8'))
+		with open(rdbtcachefile, 'w') as f: f.write(setCacheTitle.encode('utf-8', errors='ignore'))
 
 	html = None
 	rdbhtml = None
@@ -435,8 +454,8 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 
 				html = partdata["dataHTML"]
 				html = '<html><head></head><body>%s</body>' % html
-				rdbhtml = html.encode('utf-8')
-				rdbtitle = part["title"].encode('utf-8')
+				rdbhtml = html.encode('utf-8', errors='ignore')
+				rdbtitle = part["title"].encode('utf-8', errors='ignore')
 
 
 			else:
@@ -549,3 +568,16 @@ class EpubZipFile(zipfile.ZipFile):
 		zipinfo = zipfile.ZipInfo(name, time.localtime(time.time())[:6])
 		zipinfo.compress_type = compress
 		zipfile.ZipFile.writestr(self, zipinfo, s)
+
+
+
+def sanitizeStringEncoding(s, encoding='utf-8'):
+	try: s = s.decode(encoding, errors="replace")
+	except: pass
+	try: s = s.encode(encoding, errors="replace")
+	except: pass
+	return s
+
+def safeEscape(s):
+	return cgi.escape(s).replace('‘', '&rsquo;').replace('’', '&lsquo;').replace('\'', '&apos;')
+

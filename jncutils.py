@@ -2,11 +2,11 @@
 
 import os, sys, json, time, re
 from pprint import pprint
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import jncapi, wepubutils
 from pushover import pushover
-
+import config
 
 
 class EventCheckInfo():
@@ -14,6 +14,7 @@ class EventCheckInfo():
 	MAX_RETRY_HOURS = 24
 	HOURS_BETWEEN_ATTEMPTS = 2
 	MAX_KEEP_SUCCESSFUL_EVENTS = 20
+	MAX_KEEP_NOTIFIED_MANGA_EVENTS = 50
 	MAX_KEEP_ERROR_DAYS = 30
 
 	datafn = None
@@ -81,12 +82,43 @@ class EventCheckInfo():
 			event = Event(self.data["successfulEvents"][eventId])
 
 			x.append((event, event.date))
-		x = sorted(x, key=lambda x: x[1])
+		x = sorted(x, key=lambda x: x[1], reverse=True)
 		x = [t[0] for t in x]
 
 		self.data["successfulEvents"] = {}
 		for event in x[:self.MAX_KEEP_SUCCESSFUL_EVENTS]:
 			self.data["successfulEvents"][event.eventId] = event.getRawdata()
+
+		if not nosave: self.save()
+
+	def addNotifiedMangaEvent(self, event, nosave=False):
+		if "notifiedMangaEvents" not in self.data or not isinstance(self.data["notifiedMangaEvents"], dict):
+			self.data["notifiedMangaEvents"] = {}
+
+		self.data["notifiedMangaEvents"][event.eventId] = event.getRawdata()
+		self.trimNotifiedMangaEvents(nosave=nosave)
+
+	def isNotifiedMangaEvent(self, event):
+		if "notifiedMangaEvents" not in self.data or not isinstance(self.data["notifiedMangaEvents"], dict):
+			self.data["notifiedMangaEvents"] = {}
+
+		return event.eventId in self.data["notifiedMangaEvents"]
+
+
+	def trimNotifiedMangaEvents(self, nosave=False):
+		if "notifiedMangaEvents" not in self.data or not isinstance(self.data["notifiedMangaEvents"], dict):
+			self.data["notifiedMangaEvents"] = {}
+		x = []
+		for eventId in self.data["notifiedMangaEvents"]:
+			event = Event(self.data["notifiedMangaEvents"][eventId])
+
+			x.append((event, event.date))
+		x = sorted(x, key=lambda x: x[1], reverse=True)
+		x = [t[0] for t in x]
+
+		self.data["notifiedMangaEvents"] = {}
+		for event in x[:self.MAX_KEEP_NOTIFIED_MANGA_EVENTS]:
+			self.data["notifiedMangaEvents"][event.eventId] = event.getRawdata()
 
 		if not nosave: self.save()
 		
@@ -138,11 +170,11 @@ class EventCheckInfo():
 				td = now - event.lastErrorDate
 				th = td.total_seconds() / (60*60)
 				if th < self.HOURS_BETWEEN_ATTEMPTS:
-					continue
+					# Don't attempt now
+					event.setPreventProcessing()
 
 			if event.errorCounter >= maxretries:
-				#self.removeErroredEvent(event)
-				continue
+				event.setPreventProcessing()
 
 			event.setAsErrored()
 			events.append(event)
@@ -189,31 +221,45 @@ class EventGetter():
 		if not os.path.exists(self.cachefn): return
 		os.remove(self.cachefn)
 
-	def getLatest(self, filterType=None, minDate=None, maxDate=None, requestLimit=50, cacheMinutes=60, reverse=False, futureEvents=False):
-		if os.path.exists(self.cachefn) and os.path.getmtime(self.cachefn) > time.time()-60*cacheMinutes:
+	def getEvent(self, eventid, verbose=True):
+		rawevent = jncapi.request('/events/'+eventid, verbose=verbose)
+		if rawevent:
+			return Event(rawevent)
+		else:
+			return None
 
-			print("Using cached events.")
-			print
+	def getLatest(self, verbose=True, filterType=None, minDate=None, maxDate=None, requestLimit=50, cacheMinutes=60, reverse=False, futureEvents=False, whiteList=None, blackList=None):
+		
+		utcnow = datetime.utcnow()
+
+
+		if config.jnc_use_cache and os.path.exists(self.cachefn) and os.path.getmtime(self.cachefn) > time.time()-60*cacheMinutes:
+
+			if verbose:
+				print "Using cached events."
+				print
 
 			with open(self.cachefn) as f:
 				events = json.load(f)
 
 		else:
 
-			utcnow = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 			filterlimit = requestLimit if requestLimit is not None else 200
 
 			url = "/events?filter[limit]="+str(filterlimit)
 			if futureEvents:
-				url += "&filter[order]=date%20ASC&filter[where][date][gt]="+utcnow
+				utcnow_str = (utcnow - timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%S")
+				url += "&filter[order]=date%20ASC&filter[where][date][gt]="+utcnow_str
 			else:
-				url += "&filter[order]=date%20DESC&filter[where][date][lt]="+utcnow
+				utcnow_str = (utcnow + timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%S")
+				url += "&filter[order]=date%20DESC&filter[where][date][lt]="+utcnow_str
 			
 			#print url
-			print "Getting latest events...",
-			events = jncapi.request(url)
-			print("done.")
-			print
+			if verbose: print "Getting latest events...",
+			events = jncapi.request(url, verbose=verbose)
+			if verbose:
+				print "done."
+				print
 
 			with open(self.cachefn, 'w') as f:
 				json.dump(events, f)
@@ -223,6 +269,18 @@ class EventGetter():
 		eventobjs = []
 		for rawevent in events:
 			evt = Event(rawevent)
+
+			if futureEvents and evt.date < utcnow:
+				continue
+			elif not futureEvents and evt.date > utcnow:
+				continue
+
+			if not evt.inWhitelist(whiteList):
+				continue
+
+			if evt.inBlacklist(blackList):
+				continue
+
 			if filterType is not None and evt.eventType != filterType:
 				continue
 			if minDate is not None and minDate >= evt.date:
@@ -249,6 +307,14 @@ class EventType():
 	Part = 1
 	Volume = 2
 	Other = 3
+	Manga = 4
+
+	@staticmethod
+	def FromString(strConvert):
+		try:
+			return getattr(EventType, strConvert)
+		except:
+			return None
 
 
 class EventProcessResultType():
@@ -280,6 +346,10 @@ class Event():
 	errored = False
 	lastErrorDate = None
 
+	preventProcessing = False
+
+	preventDefaultQueueing = False
+
 	def __init__(self, rawdata):
 		self.rawdata = rawdata
 		date = rawdata["date"]
@@ -297,15 +367,28 @@ class Event():
 		r = re.search(r'^([\d\-]+T[\d\:]+)\.', date)
 		self.date = datetime.strptime(r.group(1), "%Y-%m-%dT%H:%M:%S")
 
-		rpart = re.search(r'Part ([\d]+)([\s] FINAL)?', self.details)
-		if rpart:
-			self.eventType = EventType.Part
-			self.partNum = int(rpart.group(1))
-			self.finalPart = (rpart.group(2) is not None)
-		elif self.details == "Ebook Publishing":
+		if self.details == "Ebook Publishing":
 			self.eventType = EventType.Volume
 		else:
-			self.eventType = EventType.Other
+			rpart = re.search(r'Part ([\d]+)([\s]+FINAL)?', self.details)
+			if rpart:
+				self.eventType = EventType.Part
+				self.partNum = int(rpart.group(1))
+				self.finalPart = (rpart.group(2) is not None)
+			else:
+				rpart = re.search(r'Parts ([\d]+).*([\s]+FINAL)?', self.details)
+				if rpart:
+					self.eventType = EventType.Part
+					self.partNum = int(rpart.group(1))
+					self.finalPart = (rpart.group(2) is not None)
+				else:
+					rpart = re.search(r'Chapter ([\d]+)([\s]+FINAL)?', self.details)
+					if rpart:
+						self.eventType = EventType.Manga
+						self.partNum = int(rpart.group(1))
+						self.finalPart = (rpart.group(2) is not None)
+					else:
+						self.eventType = EventType.Other
 
 		#For when the event name just doesn't include the volume number
 		r = re.search(r'(Volume|Vol|Vol\.)\s?([\d]+)?\s?', self.details)
@@ -317,6 +400,43 @@ class Event():
 			self.name += " Vol. "+str(self.volumeNum)
 		elif not self.volumeNum and r:
 			self.volumeNum = int(r.group(2))
+
+
+	def asSimpleDict(self):
+		return {
+			"eventType": self.eventType,
+			"eventId": self.eventId,
+			"name": self.name,
+			"partNum": self.partNum,
+			"volumeNum": self.volumeNum,
+			"finalPart": self.finalPart,
+			"timestamp": time.mktime(self.date.timetuple()),
+			"details": self.details,
+			"linkFragment": self.linkFragment,
+			"url": self.getUrl()
+		}
+
+	def inMatchlist(self, matchList, matchProp, onNoMatchList=True):
+		if not matchList: return onNoMatchList
+		for listMatcher in matchList:
+			matcherStr = listMatcher
+			
+			if isinstance(listMatcher, list) or isinstance(listMatcher, tuple):
+				matcherStr, desiredTypeStr = listMatcher
+				desiredType = EventType.FromString(desiredTypeStr)
+				if self.eventType != desiredType:
+					continue
+
+			if re.search(matcherStr, matchProp, flags=re.IGNORECASE):
+				return True
+		return False
+
+	def inWhitelist(self, matchList):
+
+		return self.inMatchlist(matchList, self.name, onNoMatchList=True)
+
+	def inBlacklist(self, matchList):
+		return self.inMatchlist(matchList, self.name, onNoMatchList=False)
 
 	def getRawdata(self):
 		if self.errorCounter > 0:
@@ -332,11 +452,21 @@ class Event():
 		self.lastErrorDate = datetime.now()
 		self.errorCounter += 1
 
+	def isPreventProcessing(self):
+		return self.preventProcessing
+
+	def setPreventProcessing(self):
+		self.preventProcessing = True
+
 	def process(self, verbose=True):
 		try:
 			if verbose:
 				print
 				print "Found %s %s" % (self.name, self.details)
+
+			if self.isPreventProcessing():
+				print "Skipping because of error policy"
+				return EventProcessResultType.Skipped
 
 			url = self.getUrl()
 
@@ -384,6 +514,12 @@ class Event():
 					self.setError("ERROR creating new config")
 					return EventProcessResultType.Error
 
+			# Add JNC links to config each time, in case they change
+			if volume:
+				cfgdata["jncForumLink"] = volume['forumLink']
+				cfgdata["jncVolumeSlug"] = volume['titleslug']
+
+
 			#We add the URL to the config last so that it doesn't stay added in error
 			#  when the part isn't available yet
 
@@ -415,17 +551,23 @@ class Event():
 			#raise
 			return EventProcessResultType.Error
 
+	def setPreventDefaultQueueing(self):
+		self.preventDefaultQueueing = True
+
 	def setSuccess(self):
 		print "Completed successfully"
 		self.rawdata["successDate"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-		checkinfo.addSuccessfulEvent(self)
-		self.pushoverOk()
+		if not self.preventDefaultQueueing:
+			checkinfo.addSuccessfulEvent(self)
+			self.pushoverOk()
 
 	def setError(self, errorMsg):
 		print "ERROR:", errorMsg
 		self.incrementErrorCounter()
-		checkinfo.addErroredEvent(self)
-		self.pushoverError(errorMsg)
+		if not self.preventDefaultQueueing:
+			checkinfo.addErroredEvent(self)
+			if self.errorCounter == 1:
+				self.pushoverError(errorMsg)
 
 	def pushoverOk(self):
 		pushover( "[JNC] %s %s" % (self.name, self.details) )
@@ -529,6 +671,8 @@ def generateVolumeConfigDict(volume):
 	cfgdata = {}
 	cfgdata["title"] = volume["title"]
 	cfgdata["author"] = volume["author"]
+	cfgdata["illustrator"] = volume["illustrator"]
+	cfgdata["publisher"] = volume["publisherOriginal"]
 	cfgdata["cover"] = jncapi.getCoverFullUrlForAttachmentContainer(volume)
 	cfgdata["outfile"] = "out/jnc/"+volumeNameToEpubFilename(volume["title"])+".epub"
 	cfgdata["urls"] = []
@@ -541,3 +685,24 @@ def getVolumeUrls(volume):
 		urls.append(jncapi.Site+"/c/"+part["titleslug"])
 
 	return sortContentUrlsByPartNumber(urls)
+
+
+
+
+def printIcal(calendarName, events):
+
+	print "BEGIN:VCALENDAR"
+	print "VERSION:2.0"
+	print "PRODID:-//hacksw/handcal//NONSGML v1.0//EN"
+	print "X-WR-CALNAME:", calendarName
+
+	for event in events:
+		print "BEGIN:VEVENT";
+		print "UID:", event.eventId
+		print "DTSTAMP:", datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+		print "DTSTART:", event.date.strftime("%Y-%m-%dT%H:%M:%SZ")
+		print "SUMMARY:", event.name, event.details
+		print "END:VEVENT"
+	
+	print "END:VCALENDAR"
+

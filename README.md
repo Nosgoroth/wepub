@@ -6,6 +6,7 @@ This scripts downloads a series of URLs, strips unnecessary content from them an
 Originally based on [web2epub](https://github.com/rupeshk/web2epub) by **rupeshk**, this script adds the following:
 
 * Read book configuration from config files
+* Generate book configuration from RSS feeds
 * Reduced character encoding issues, hopefully
 * Cover from URL
 * Static HTML chapters
@@ -163,6 +164,50 @@ You can also set these switches as variables in your config:
 * `mobi` for `--mobi`
 * `sendtokindle` for `--kindle`
 
+## RSS feeds
+
+You can configure a series of RSS feeds to check and generate epubs from.
+
+### Configuring an RSS feed
+
+Add a new dictionary to the `wepub_rss_feeds` array in your `config.py`. 
+
+```py
+wepub_rss_feeds = [
+    {
+        "id": "MyRssFeed",
+        "url": "https://www.test.dev/rssfeed",
+        "config": "configName"
+    }
+]
+```
+
+Each post of the RSS feed will be added to the specified config. You could also define multiple configs per RSS feed:
+
+```py
+wepub_rss_feeds = [
+    {
+        "id": "MyRssFeed",
+        "url": "https://www.test.dev/rssfeed",
+        "config": None,
+        "configs": [
+            (r'My awesome series', "awsomeConfigName"),
+            (r'My amazing series', "amazingConfigName"),
+        ]
+    }
+]
+```
+
+Each post will be added to a config if its title matches the config's corresponding matcher. The matcher will be treated a regex.
+
+### Running the checks
+
+Once everything is properly set up, you can run a check for the RSS feeds with the following command:
+
+```bash
+python wepubrss.py
+```
+
 ## Send to Kindle
 
 Directly send to Kindle with this script.
@@ -197,14 +242,18 @@ If, when converting to mobi, you get odd looking paragraphs, you might want to u
 
 ## J-Novel Club support
 
-[J-Novel Club](https://j-novel.club/howitworks) (JNC) is a light novel translation and publishing company that allows members to read weekly parts of a volume as it's translated before its final release as an epub in the usual stores. The JNC integration takes two forms:
+[J-Novel Club](https://j-novel.club/howitworks) (JNC) is a light novel translation and publishing company that allows members to read weekly parts of a LN volume as it's translated before its final release as an epub in the usual stores. The JNC integration takes two forms:
 
 * Support for JNC part URLs in wepub configs
 * A `jnc.py` script that can create and modify wepub configs based on different events
 
 Both require a JNC account with a paid membership in order to access all available parts -- otherwise, you will only be able to access parts available to free members, which are usually only the first part of a volume.
 
-This script uses JNC's undocumented API that powers both their website and their app -- both of which kind of suck at the time of writing, so you can generate epubs with this and read them in a better reader.
+This script uses JNC's undocumented API that powers both their website and their app -- both of which kind of suck at the time of writing, so you can generate epubs with this and read them in a better reader. Please do not distribute the generated epubs.
+
+It may be worth mentioning that JNC publishes prepubs with the understanding that there will be future QC passes done to the text before the full book us published, and therefore there may be mistakes.
+
+**Please note**: JNC manga is not supported by this script.
 
 ### Authentication
 
@@ -311,7 +360,6 @@ By doing this, you will receive a notification in your devices where you have in
 You could use a cronjob (or any other way of running a script periodically) to make `jnc.py` check for released parts and generate the corresponding epubs. Additionally, you could symlink the `out` folder to a netwoerk-available location (like Dropbox) to make these epubs available to ebook readers that support network locations.
 
 Additionally, you can read `.jnceventcheckinfo.json` from another script to read status information, such as the latest successfully processed parts, any errored parts awaitng more processing in the next run, the last time the script ran...
-
 
 ## Known snags
 

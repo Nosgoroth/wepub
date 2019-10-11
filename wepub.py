@@ -14,12 +14,6 @@ import sendtokindle
 
 
 
-
-
-
-
-
-
 def main():
 	parser = OptionParser(usage="Usage: %prog configFile [options]")
 	parser.add_option("-r", "--redownload", "--nocache", action="store_true", dest="nocache", help="Don't use cache")

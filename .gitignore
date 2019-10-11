@@ -10,3 +10,4 @@ configs/*
 !configs/example.py
 !configs/example.wepubdl
 .*.json
+.vscode
