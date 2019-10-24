@@ -25,7 +25,7 @@ This script works with Python 2.7.x because I'm stubborn and bad with change.
 
 * [Readability](https://github.com/buriy/python-readability)
 * [Requests](http://docs.python-requests.org/en/master/)
-* [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/#Download)
+* [BeautifulSoup v3](https://www.crummy.com/software/BeautifulSoup/#Download)
 * [jstyleson](https://github.com/linjackson78/jstyleson) -- optional, will fallback to built-in `json`, but it's nice to be able to use comments
 
 ```bash
