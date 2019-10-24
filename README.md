@@ -29,7 +29,7 @@ This script works with Python 2.7.x because I'm stubborn and bad with change.
 * [jstyleson](https://github.com/linjackson78/jstyleson) -- optional, will fallback to built-in `json`, but it's nice to be able to use comments
 
 ```bash
-pip install readability-lxml requests beautifulsoup4 jstyleson
+pip install readability-lxml requests beautifulsoup jstyleson
 ```
 
 ### External binaries
