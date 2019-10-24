@@ -393,13 +393,19 @@ class Event():
 		#For when the event name just doesn't include the volume number
 		r = re.search(r'(Volume|Vol|Vol\.)\s?([\d]+)?\s?', self.details)
 		if r:
-			self.volumeNum = int(r.group(2))
+			try:
+				self.volumeNum = int(r.group(2))
+			except:
+				self.volumeNum = 1
 
 		r = re.search(r'(Volume|Vol|Vol\.) ([\d]+)?\s?', self.name)
 		if not r and self.volumeNum:
 			self.name += " Vol. "+str(self.volumeNum)
 		elif not self.volumeNum and r:
-			self.volumeNum = int(r.group(2))
+			try:
+				self.volumeNum = int(r.group(2))
+			except:
+				self.volumeNum = 1
 
 
 	def asSimpleDict(self):
