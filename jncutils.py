@@ -594,7 +594,12 @@ class Event():
 		return (self.eventType == EventType.Volume)
 
 	def getUrl(self):
-		return jncapi.Site+self.linkFragment
+		url = jncapi.Site
+		if re.match(u"/", self.linkFragment):
+			url += self.linkFragment
+		else:
+			url += "/"+self.linkFragment
+		return url
 
 	def toConfigFileName(self):
 		return volumeNameToConfigFileName(self.name)
