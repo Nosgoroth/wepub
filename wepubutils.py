@@ -250,7 +250,10 @@ class EpubProcessor:
 	def processUrl(self, url, index):
 
 		if not url.lower().startswith("http"):
-			return self.processStaticPage(url, index)
+			if os.path.exists(url):
+				return self.processFilePage(url, index)
+			else:
+				return self.processStaticPage(url, index)
 
 		print
 		print "Reading url no. %s of %s --> %s " % (index+1, len(self.options.urls), url)
@@ -282,6 +285,23 @@ class EpubProcessor:
 			sys.exit()
 
 		return self.writePage(readable_article, readable_title, index, baseUrl=url)
+
+	def processFilePage(self, filename, index):
+
+		print
+		print "Retrieving contents of %s for processing..." % filename
+
+		content = None
+
+		with open(filename, 'r') as f:
+			content = f.read()
+
+		bs = re.search(r'<body( [^>]*)?>(.*)</body>', content.replace("\n",""))
+		if bs:
+			content = bs.group(2)
+
+		return self.processStaticPage(content, index)
+
 
 	def processStaticPage(self, staticPageStr, index):
 
