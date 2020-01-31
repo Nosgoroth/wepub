@@ -40,7 +40,17 @@ def processSingleEvent(eventid, verbose=True):
 			print "Couldn't retrieve event", eventid
 		return
 	event.setPreventDefaultQueueing()
-	return event.process(verbose=verbose)
+	result = event.process(verbose=verbose)
+	if result == jncutils.EventProcessResultType.Successful:
+		jncutils.checkinfo.addSuccessfulEvent(event)
+		cfg = wepubutils.ConfigFile(event.processedCfgid)
+		cfgdata = cfg.read(verbose=False)
+		try:
+			wepubutils.EpubProcessor(cfgdata).make()
+		except Exception, ex:
+			print ex
+			# raise
+			pushover("[JNC] Error generating %s: %s" % (event.processedCfgid, ex))
 
 
 def checkLatestParts(options, verbose=True):
