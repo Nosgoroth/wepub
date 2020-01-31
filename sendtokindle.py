@@ -48,6 +48,8 @@ def send(filepath, fromAddr=None, toAddr=None, gmailUser=None, gmailPass=None,
     msg.add_header('Content-Disposition', 'attachment', filename="book"+ext)
     outer.attach(msg)
     composed = outer.as_string()
+
+    print "Sending ebook to Kindle via Email..."
     
     s = smtplib.SMTP('smtp.gmail.com:587')
     s.ehlo()
@@ -55,6 +57,8 @@ def send(filepath, fromAddr=None, toAddr=None, gmailUser=None, gmailPass=None,
     s.login(gmailUser,gmailPass)
     s.sendmail(fromAddr, toAddr, composed)
     s.quit()
+
+    print "Done."
 
     return True
 
