@@ -53,6 +53,15 @@ def processSingleEvent(eventid, verbose=True):
 			pushover("[JNC] Error generating %s: %s" % (event.processedCfgid, ex))
 
 
+def removeErroredEvent(eventid, verbose=True):
+	res = jncutils.checkinfo.removeErroredEvent(eventid)
+	if verbose:
+		if res:
+			print "Removed event", eventid
+		else:
+			print "Couldn't remove event", eventid
+	return res
+
 def checkLatestParts(options, verbose=True):
 	lastprocessed = jncutils.checkinfo.getLastProcessed()
 
@@ -275,6 +284,8 @@ def main():
 	parser.add_option("--genseries", action="store", dest="genseries", help="Generate configs from series URL")
 	parser.add_option("--event", action="store", dest="eventid", help="Process a single event")
 
+	parser.add_option("--remove-error-event", action="store", dest="remerrevent", help="Remove an event from error list")
+
 	parser.add_option("--test", action="store_true", dest="test", help="Calls a test method")
 	parser.add_option("--json", action="store_true", dest="json", help="Print events as json")
 	parser.add_option("--json-include-next", action="store_true", dest="jsonnext", help="Include future events in json")
@@ -294,6 +305,8 @@ def main():
 
 	if options.eventid:
 		processSingleEvent(options.eventid)
+	elif options.remerrevent:
+		removeErroredEvent(options.remerrevent)
 	elif options.check:
 		checkLatestParts(options)
 		checkNotifyManga(options)
