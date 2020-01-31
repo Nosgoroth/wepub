@@ -599,5 +599,5 @@ def sanitizeStringEncoding(s, encoding='utf-8'):
 	return s
 
 def safeEscape(s):
-	return cgi.escape(s).replace('‘', '&rsquo;').replace('’', '&lsquo;').replace('\'', '&apos;')
+	return cgi.escape(s).replace(u'‘', '&rsquo;').replace(u'’', '&lsquo;').replace('\'', '&apos;')
 
