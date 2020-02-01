@@ -476,17 +476,26 @@ class Event():
 
 			url = self.getUrl()
 
-			#We check that the part is available FIRST
-			try:
-				print "Retrieving content..."
-				wepubutils.retrieveUrl(url)
-			except:
-				self.setError("FAILED to retrieve part content")
-				return EventProcessResultType.Error
+			# We check if the URL is a volume for some reason
+			if re.match(r"/v/", self.linkFragment):
+				#ok what now
+				url = None
+				volume = self.getVolumeFromUrl()
+				if not volume:
+					return EventProcessResultType.Error
+				
+			else:
+				#We asume it's a part
+				#We check that the part is available FIRST
+				try:
+					print "Retrieving content..."
+					wepubutils.retrieveUrl(url)
+				except:
+					self.setError("FAILED to retrieve part content")
+					return EventProcessResultType.Error
 
-			#We try to get the important values
-			url = self.getUrl()
-			volume = self.getVolume()
+				#We try to get the important values
+				volume = self.getVolume()
 
 			# Then we create the config file
 			if volume:
@@ -532,11 +541,14 @@ class Event():
 
 			if not "urls" in cfgdata:
 				cfgdata["urls"] = []
-			if url in cfgdata["urls"]:
-				print "Part already exists! Ignoring..."
-				return EventProcessResultType.Skipped
-			cfgdata["urls"].append(url)
-			cfgdata["urls"] = sortContentUrlsByPartNumber(cfgdata["urls"])
+
+			if url:
+				if url in cfgdata["urls"]:
+					print "Part already exists! Ignoring..."
+					return EventProcessResultType.Skipped
+				cfgdata["urls"].append(url)
+				cfgdata["urls"] = sortContentUrlsByPartNumber(cfgdata["urls"])
+
 			if cfg.write(cfgdata, verbose=False):
 				pass
 			else:
@@ -629,9 +641,16 @@ class Event():
 		if not part or not "volumeId" in part:
 			print "Error retrieving event part"
 			return None
-		series = jncapi.getVolume(part["volumeId"])
+		volume = jncapi.getVolume(part["volumeId"])
 
-		return series
+		return volume
+
+	def getVolumeFromUrl(self):
+		slug = re.sub(r"^\/v\/", "", self.linkFragment)
+		slug = re.sub(r"\/$", "", slug)
+		if self.linkFragment == slug:
+			return None
+		return jncapi.getVolumeFromSlug(slug)
 
 	def getPartContent(self):
 		if not self.isPart():
