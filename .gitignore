@@ -11,3 +11,4 @@ configs/*
 !configs/example.wepubdl
 .*.json
 .vscode
+test.py

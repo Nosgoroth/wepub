@@ -531,8 +531,13 @@ class Event():
 
 			# Add JNC links to config each time, in case they change
 			if volume:
-				cfgdata["jncForumLink"] = volume['forumLink']
 				cfgdata["jncVolumeSlug"] = volume['titleslug']
+				
+				if 'forumLink' in volume:
+					cfgdata["jncForumLink"] = volume['forumLink']
+				
+				if "totalPartNumber" in volume:
+					cfgdata["jncPartNumber"] = volume['totalPartNumber']
 
 
 			#We add the URL to the config last so that it doesn't stay added in error

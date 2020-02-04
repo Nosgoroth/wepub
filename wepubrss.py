@@ -12,16 +12,6 @@ from time import mktime
 from pushover import pushover
 
 
-'''
-<item>
-    <title>I Shaved. Then I Brought a High School Girl Home. v1c11</title>
-    <description>(yuNS) Series Information: https://www.novelupdates.com/series/i-shaved-then-i-brought-a-high-school-girl-home/</description>
-    <link>https://www.novelupdates.com/extnu/2377670/</link>
-    <pubDate>Wed, 20 Mar 2019 21:13:15 +0000</pubDate>
-</item>
-'''
-
-
 class WepubRssCheckInfo():
 	datafn = None
 	data = None
