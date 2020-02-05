@@ -355,11 +355,19 @@ class EpubProcessor:
 
 		#Download images
 		for j,image in enumerate(soup.findAll("img")):
+
+			src = None
+			try:
+				src = image["src"]
+			except:
+				print "Image tag with no source attribute found"
+				continue
+
 			#Convert relative urls to absolute urls
-			if image["src"].lower().startswith("http"):
-				imgfullpath = image["src"]
+			if src.lower().startswith("http"):
+				imgfullpath = src
 			elif baseUrl:
-				imgfullpath = urlparse.urljoin(baseUrl, image["src"])
+				imgfullpath = urlparse.urljoin(baseUrl, src)
 			#Remove query strings from url
 			imgpath = urlparse.urlunsplit(urlparse.urlsplit(imgfullpath)[:3]+('','',))
 			imgfile = os.path.basename(imgpath)
