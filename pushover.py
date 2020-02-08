@@ -8,6 +8,18 @@ import config
 
 PUSHOVER_API = "https://api.pushover.net/1/"
 
+
+
+
+def sanitizeStringEncoding(s, encoding='utf-8'):
+	try: s = s.decode(encoding, errors="replace")
+	except: pass
+	try: s = s.encode(encoding, errors="replace")
+	except: pass
+	return s
+
+
+
 class PushoverError(Exception): pass
 
 def pushover(message, token=config.PUSHOVER_TOKEN, user=config.PUSHOVER_USER):
@@ -18,7 +30,7 @@ def pushover(message, token=config.PUSHOVER_TOKEN, user=config.PUSHOVER_USER):
 		kwargs = {}
 		kwargs['token'] = token
 		kwargs['user'] = user
-		kwargs['message'] = message
+		kwargs['message'] = sanitizeStringEncoding(message)
 		
 		url = urlparse.urljoin(PUSHOVER_API, "messages.json")
 		data = urllib.urlencode(kwargs)
