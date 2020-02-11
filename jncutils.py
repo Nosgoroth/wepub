@@ -468,7 +468,7 @@ class Event():
 		try:
 			if verbose:
 				print
-				print "Found %s %s" % (self.name, self.details)
+				print "Found %s %s (%s)" % (self.name, self.details, self.eventId)
 
 			if self.isPreventProcessing():
 				print "Skipping because of error policy"
