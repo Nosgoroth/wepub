@@ -629,6 +629,7 @@ class Event():
 			return None
 
 		slug = re.sub(r"^\/c\/", "", self.linkFragment)
+		slug = re.sub(r"\/.*", "", slug)
 		part = jncapi.getPartFromSlug(slug)
 		if not part or not "serieId" in part:
 			print "Error retrieving event part"
@@ -642,6 +643,7 @@ class Event():
 			return None
 
 		slug = re.sub(r"^\/c\/", "", self.linkFragment)
+		slug = re.sub(r"\/.*", "", slug)
 		part = jncapi.getPartFromSlug(slug)
 		if not part or not "volumeId" in part:
 			print "Error retrieving event part"
