@@ -51,6 +51,8 @@ def processSingleEvent(eventid, verbose=True):
 			print ex
 			# raise
 			pushover("[JNC] Error generating %s: %s" % (event.processedCfgid, ex))
+	elif result == jncutils.EventProcessResultType.AlreadyProcessed and event.errored:
+		jncutils.checkinfo.addSuccessfulEvent(event)
 
 
 def removeErroredEvent(eventid, verbose=True):
@@ -104,6 +106,11 @@ def checkLatestParts(options, verbose=True):
 			pass 
 
 		elif result == jncutils.EventProcessResultType.Skipped:
+
+			# Don't regenerate epub, but DO save this date
+			shouldMarkDateAsProcessed = True
+
+		elif result == jncutils.EventProcessResultType.AlreadyProcessed:
 
 			# Don't regenerate epub, but DO save this date
 			shouldMarkDateAsProcessed = True

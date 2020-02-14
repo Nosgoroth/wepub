@@ -321,6 +321,7 @@ class EventProcessResultType():
 	Error = 0
 	Successful = 1
 	Skipped = 2
+	AlreadyProcessed = 3
 
 
 
@@ -502,7 +503,8 @@ class Event():
 				cfgid = volumeNameToConfigFileName(volume["title"])
 			else:
 				print "Unable to retrieve volume"
-				cfgid = self.toConfigFileName()
+				#cfgid = self.toConfigFileName()
+				return EventProcessResultType.Error
 
 			self.processedCfgid = cfgid
 
@@ -550,7 +552,9 @@ class Event():
 			if url:
 				if url in cfgdata["urls"]:
 					print "Part already exists! Ignoring..."
-					return EventProcessResultType.Skipped
+					if self.errored:
+						self.setSuccess()
+					return EventProcessResultType.AlreadyProcessed
 				cfgdata["urls"].append(url)
 				cfgdata["urls"] = sortContentUrlsByPartNumber(cfgdata["urls"])
 
