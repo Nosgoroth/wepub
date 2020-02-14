@@ -316,7 +316,6 @@ def main():
 		removeErroredEvent(options.remerrevent)
 	elif options.check:
 		checkLatestParts(options)
-		checkNotifyManga(options)
 	elif options.checkmanga:
 		checkNotifyManga(options)
 	elif options.genvolume:
