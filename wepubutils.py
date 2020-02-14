@@ -421,7 +421,7 @@ def processImage(urlOrPath, ignoreCache=False, extension=None): #extension with 
 		return cachefile
 	else:
 		try:
-			r = requests.get(urlOrPath)
+			r = requests.get(urlOrPath, timeout=10)
 			with open(cachefile, 'wb') as f:
 				f.write(r.content)
 			return cachefile
@@ -494,7 +494,7 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 					s = requests.Session()
 
 					#Get the URL
-					r = s.get(url)
+					r = s.get(url, timeout=10)
 
 					# If we were redirected to the dumb Tumblr GDPR consent page
 					if "tumblr.com" in url and "privacy/consent" in r.url:
@@ -524,7 +524,7 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 						r = s.post("https://www.tumblr.com/svc/privacy/consent", headers=headers, data=json.dumps(consentPayload))
 
 						# We perform the original request already
-						r = s.get(url)
+						r = s.get(url, timeout=10)
 
 					print r.status_code
 

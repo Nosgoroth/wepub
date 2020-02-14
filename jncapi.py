@@ -37,9 +37,9 @@ def request(url, data=None, usePost=False, requireAuth=False, verbose=True):
 		#print url, data
 
 		if usePost:
-			r = requests.post(Endpoint+url, data=data, headers=headers)
+			r = requests.post(Endpoint+url, data=data, headers=headers, timeout=10)
 		else:
-			r = requests.get(Endpoint+url, data=data, headers=headers)
+			r = requests.get(Endpoint+url, data=data, headers=headers, timeout=10)
 		
 		#print r.text
 		json = r.json()
