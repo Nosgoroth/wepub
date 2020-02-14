@@ -628,12 +628,22 @@ class Event():
 	def toEpubFileName(self):
 		return volumeNameToEpubFilename(self.name)
 
+	def getSlugFromLinkFragment(self):
+		x = re.search(r'^/?(c|v|s)/([^/]+)(/.*)?$', self.linkFragment)
+		if x:
+			return x.group(2)
+		else:
+			return None
+
+
 	def getSeries(self):
 		if not self.isPart():
 			return None
 
-		slug = re.sub(r"^\/c\/", "", self.linkFragment)
-		slug = re.sub(r"\/.*", "", slug)
+		slug = self.getSlugFromLinkFragment()
+		if not slug:
+			print "Error extracting slug from linkFragment", self.linkFragment
+			return None
 		part = jncapi.getPartFromSlug(slug)
 		if not part or not "serieId" in part:
 			print "Error retrieving event part"
@@ -642,12 +652,16 @@ class Event():
 		
 		return series
 
+
+
 	def getVolume(self):
 		if not self.isPart():
 			return None
 
-		slug = re.sub(r"^\/c\/", "", self.linkFragment)
-		slug = re.sub(r"\/.*", "", slug)
+		slug = self.getSlugFromLinkFragment()
+		if not slug:
+			print "Error extracting slug from linkFragment", self.linkFragment
+			return None
 		part = jncapi.getPartFromSlug(slug)
 		if not part or not "volumeId" in part:
 			print "Error retrieving event part"
@@ -657,16 +671,19 @@ class Event():
 		return volume
 
 	def getVolumeFromUrl(self):
-		slug = re.sub(r"^\/v\/", "", self.linkFragment)
-		slug = re.sub(r"\/$", "", slug)
-		if self.linkFragment == slug:
+		slug = self.getSlugFromLinkFragment()
+		if not slug:
+			print "Error extracting slug from linkFragment", self.linkFragment
 			return None
 		return jncapi.getVolumeFromSlug(slug)
 
 	def getPartContent(self):
 		if not self.isPart():
 			return (None, None)
-		slug = re.sub(r"^\/c\/", "", self.linkFragment)
+		slug = self.getSlugFromLinkFragment()
+		if not slug:
+			print "Error extracting slug from linkFragment", self.linkFragment
+			return (None, None)
 		part = jncapi.getPartFromSlug(slug)
 		if not part or not "id" in part:
 			print "Error retrieving event part"
