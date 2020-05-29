@@ -1,12 +1,21 @@
 #!/usr/local/bin/python3
 
-import os, sys, json, time, re
+import os, sys, json, time, re, calendar
 from pprint import pprint
 from datetime import datetime, timedelta
 
 import jncapi, wepubutils
 from pushover import pushover
 import config
+
+
+
+def utc_to_local(utc_dt):
+    # get integer timestamp to avoid precision lost
+    timestamp = calendar.timegm(utc_dt.timetuple())
+    local_dt = datetime.fromtimestamp(timestamp)
+    assert utc_dt.resolution >= timedelta(microseconds=1)
+    return local_dt.replace(microsecond=utc_dt.microsecond)
 
 
 class EventCheckInfo():
@@ -232,7 +241,6 @@ class EventGetter():
 		
 		utcnow = datetime.utcnow()
 
-
 		if config.jnc_use_cache and os.path.exists(self.cachefn) and os.path.getmtime(self.cachefn) > time.time()-60*cacheMinutes:
 
 			if verbose:
@@ -269,6 +277,8 @@ class EventGetter():
 		eventobjs = []
 		for rawevent in events:
 			evt = Event(rawevent)
+
+			# print evt.date
 
 			if futureEvents and evt.date < utcnow:
 				continue
@@ -417,7 +427,7 @@ class Event():
 			"partNum": self.partNum,
 			"volumeNum": self.volumeNum,
 			"finalPart": self.finalPart,
-			"timestamp": time.mktime(self.date.timetuple()),
+			"timestamp": calendar.timegm(self.date.timetuple()),
 			"details": self.details,
 			"linkFragment": self.linkFragment,
 			"url": self.getUrl()
@@ -603,7 +613,7 @@ class Event():
 		pushover( "[JNC][ERROR] %s %s (%s)" % (self.name, self.details, error) )
 
 	def __str__(self):
-		return ("[%s] %s - %s" % (self.date.strftime("%Y-%m-%d %H:%M"), self.name, self.details))
+		return ("[%s] %s - %s" % (utc_to_local(self.date).strftime("%Y-%m-%d %H:%M"), self.name, self.details))
 
 	def isPart(self):
 		return (self.eventType == EventType.Part)
