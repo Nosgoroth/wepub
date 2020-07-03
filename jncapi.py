@@ -81,10 +81,22 @@ def getPartFromSlug(slug):
 	return request("/parts/findOne", data=data, requireAuth=True)
 	# id, serieid, volumeid
 
+
 def getPartData(partId):
 	#print "getPartData:", partId
 	#https://api.j-novel.club/api/parts/5bac40ac45442dd0763fab07/partData
 	return request("/parts/%s/partData" % partId, requireAuth=True)
+
+
+def getPartsLatest():
+	#print "getPartData:", partId
+	#https://api.j-novel.club/api/parts/5bac40ac45442dd0763fab07/partData
+	return request("/parts/", {
+		"filter": json.dumps({
+			"limit": 10,
+			"order": "launchDate DESC"
+		})
+	})
 
 def getSeries(seriesId):
 	datafilter = {

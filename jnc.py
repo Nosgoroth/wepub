@@ -16,6 +16,11 @@ def jncTestMethod():
 	pprint(data[0].rawdata)
 
 
+def printLatestParts():
+	data = jncapi.getPartsLatest()
+	for item in data:
+		print item["title"]
+
 def checkNotifyManga(options):
 
 	whiteList = []
@@ -297,6 +302,7 @@ def main():
 	parser.add_option("--json", action="store_true", dest="json", help="Print events as json")
 	parser.add_option("--json-include-next", action="store_true", dest="jsonnext", help="Include future events in json")
 	parser.add_option("--json-next-limit", action="store", dest="jsonnextlimit", help="How many future events to include in json")
+	parser.add_option("--latest-parts", action="store_true", dest="latestparts", help="Show latest parts")
 
 	(options, args) = parser.parse_args()
 
@@ -328,6 +334,8 @@ def main():
 		printIcalNextEvents(options)
 	elif options.json:
 		printEventJson(options)
+	elif options.latestparts:
+		printLatestParts()
 	else:
 		printLatestEvents(options)
 		
