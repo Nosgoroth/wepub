@@ -5,6 +5,7 @@ import jncutils, jncapi
 import wepubutils
 from pushover import pushover
 from pprint import pprint
+from time import sleep
 
 import config
 
@@ -12,8 +13,9 @@ import config
 
 def jncTestMethod():
 	print "Getting data..."
-	data = jncutils.events.getLatest(filterType=None, requestLimit=10)
-	pprint(data[0].rawdata)
+	data = jncapi.getPartsLatest()
+	for item in data:
+		print item["title"]
 
 
 def printLatestParts():
@@ -99,6 +101,8 @@ def checkLatestParts(options, verbose=True):
 	latestProcessedEvent = None
 
 	for event in events:
+
+		sleep(5)
 
 		result = event.process(verbose=verbose)
 
@@ -282,6 +286,29 @@ def printEventJson(options):
 	print '[[[JSON]]]'+json.dumps([x.asSimpleDict() for x in events])+'[[[/JSON]]]'
 
 
+def updateReadCompletion(partId, completion):
+	res = jncapi.updateReadCompletion(partId, completion)
+	if res:
+		print "The part completion was updated"
+	else:
+		print "Couldn't perform the operation"
+
+def eventUpdateReadCompletion(eventId, completion):
+	event = jncutils.events.getEvent(eventId)
+	if not event:
+		print "Couldn't get event %s" % eventId
+		return
+	part = event.getPart()
+	if not part or not "id" in part:
+		print "Couldn't get part from event %s" % eventId
+		return
+	res = jncapi.updateReadCompletion(part["id"], completion)
+	if res:
+		print "The part completion was updated"
+	else:
+		print "Couldn't perform the operation"
+
+
 def main():
 	parser = OptionParser(usage="Usage: %prog [options]")
 	parser.add_option("--nocache", action="store_true", dest="nocache", help="Don't use cache when retrieving events from JNC API")
@@ -303,6 +330,13 @@ def main():
 	parser.add_option("--json-include-next", action="store_true", dest="jsonnext", help="Include future events in json")
 	parser.add_option("--json-next-limit", action="store", dest="jsonnextlimit", help="How many future events to include in json")
 	parser.add_option("--latest-parts", action="store_true", dest="latestparts", help="Show latest parts")
+
+
+	parser.add_option("--set-part-read", action="store", dest="setpartread", help="Set part as read on JNC server")
+	parser.add_option("--set-part-unread", action="store", dest="setpartunread", help="Set part as unread on JNC server")
+
+	parser.add_option("--set-event-part-read", action="store", dest="seteventpartread", help="Set part as read on JNC server from event id")
+	parser.add_option("--set-event-part-unread", action="store", dest="seteventpartunread", help="Set part as unread on JNC server from event id")
 
 	(options, args) = parser.parse_args()
 
@@ -336,6 +370,14 @@ def main():
 		printEventJson(options)
 	elif options.latestparts:
 		printLatestParts()
+	elif options.setpartread:
+		updateReadCompletion(options.setpartread, 1)
+	elif options.setpartunread:
+		updateReadCompletion(options.setpartunread, 0)
+	elif options.seteventpartread:
+		eventUpdateReadCompletion(options.seteventpartread, 1)
+	elif options.seteventpartunread:
+		eventUpdateReadCompletion(options.seteventpartunread, 0)
 	else:
 		printLatestEvents(options)
 		

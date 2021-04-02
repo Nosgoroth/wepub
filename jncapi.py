@@ -1,6 +1,6 @@
 import os, sys, json
 import requests
-
+from pprint import pprint
 import config
 
 Site = "https://j-novel.club"
@@ -8,15 +8,18 @@ Endpoint = "https://api.j-novel.club/api"
 Cloudfront = "https://d2dq7ifhe7bu0f.cloudfront.net"
 
 authtoken = None
+userid = None
 
 def login():
-	global authtoken
+	global authtoken, userid
 	if authtoken:
 		return True
 
 	data = request("/Users/login?include=user", data={"email": config.jnc_email, "password": config.jnc_password}, usePost=True)
+
 	try:
 		authtoken = data["id"]
+		userid = data["user"]["id"]
 		return True
 	except:
 		print("Invalid response when trying to login")
@@ -34,7 +37,7 @@ def request(url, data=None, usePost=False, requireAuth=False, verbose=True):
 			#print "USING authtoken:", authtoken
 			headers={"Authorization": authtoken}
 
-		#print url, data
+		# print url, data
 
 		if usePost:
 			r = requests.post(Endpoint+url, data=data, headers=headers, timeout=10)
@@ -62,6 +65,9 @@ def request(url, data=None, usePost=False, requireAuth=False, verbose=True):
 			print "   ", url
 			print "   ", data
 		return None
+
+def getEvent(eventId, verbose=False):
+	return request('/events/'+eventId, verbose=verbose)
 
 def getPartFromSlug(slug):
 	#https://api.j-novel.club/api/parts/findOne?filter={%22where%22:{%22titleslug%22:%22apparently-it-s-my-fault-that-my-husband-has-the-head-of-a-beast-volume-1-part-1%22},%22include%22:[{%22volume%22:[%22publishInfos%22]}]}
@@ -153,3 +159,19 @@ def getCoverFullUrlForAttachmentContainer(series):
 		return getFullUrlFromAttachment(series["attachments"][0])
 	except:
 		return None
+
+def updateReadCompletion(partId, completion=1):
+	global userid
+	try:
+		login()
+		if not userid:
+			return None
+		url = "/users/%s/updateReadCompletion" % userid
+		data = {
+			"partId": partId,
+			"completion": max(0, min(completion, 1)),
+		}
+		res = request(url, data=data, usePost=True, requireAuth=True, verbose=True)
+		return (res != None)
+	except:
+		raise

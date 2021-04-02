@@ -231,7 +231,7 @@ class EventGetter():
 		os.remove(self.cachefn)
 
 	def getEvent(self, eventid, verbose=True):
-		rawevent = jncapi.request('/events/'+eventid, verbose=verbose)
+		rawevent = jncapi.getEvent(eventid, verbose=verbose)
 		if rawevent:
 			return Event(rawevent)
 		else:
@@ -686,6 +686,16 @@ class Event():
 			print "Error extracting slug from linkFragment", self.linkFragment
 			return None
 		return jncapi.getVolumeFromSlug(slug)
+
+	def getPart(self):
+		if not self.isPart():
+			return None
+		slug = self.getSlugFromLinkFragment()
+		if not slug:
+			print "Error extracting slug from linkFragment", self.linkFragment
+			return None
+		part = jncapi.getPartFromSlug(slug)
+		return part
 
 	def getPartContent(self):
 		if not self.isPart():

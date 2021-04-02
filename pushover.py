@@ -47,7 +47,6 @@ def pushover(message, token=config.PUSHOVER_TOKEN, user=config.PUSHOVER_USER):
 		return False
 	except:
 		print "Pushover error ocurred"
-		raise
 		return False
 
 
