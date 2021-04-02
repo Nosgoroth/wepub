@@ -193,14 +193,14 @@ class EpubProcessor:
 
 		for i,url in enumerate(self.options.urls):
 			(deltamanifest, deltaspine, deltatoc) = self.processUrl(url, i)
-			self.info['manifest'] += deltamanifest
-			self.info['spine'] += deltaspine
-			self.info['toc'] += deltatoc
+			self.info['manifest'] += sanitizeStringEncoding(deltamanifest, justDecode=True)
+			self.info['spine'] += sanitizeStringEncoding(deltaspine, justDecode=True)
+			self.info['toc'] += sanitizeStringEncoding(deltatoc, justDecode=True)
 
 		# Finally, write the index and toc
 		self.epub.writestr('OEBPS/stylesheet.css', wepubtemplates.stylesheet_tpl)
 		self.epub.writestr('OEBPS/Content.opf', sanitizeStringEncoding(wepubtemplates.index_tpl % self.info) )
-		self.epub.writestr('OEBPS/toc.ncx', sanitizeStringEncoding(wepubtemplates.toc_tpl % self.info) )
+		self.epub.writestr('OEBPS/toc.ncx', sanitizeStringEncoding(wepubtemplates.toc_tpl % self.info))
 
 		self.epub.close()
 
@@ -599,11 +599,16 @@ class EpubZipFile(zipfile.ZipFile):
 
 
 
-def sanitizeStringEncoding(s, encoding='utf-8'):
+def sanitizeStringEncoding(s, encoding='utf-8', justDecode=False):
 	try: s = s.decode(encoding, errors="replace")
 	except: pass
+	if justDecode:
+		return s
 	try: s = s.encode(encoding, errors="replace")
-	except: pass
+	except Exception as e:
+		print "Error encoding string", e
+		print s
+		pass
 	return s
 
 def safeEscape(s):
@@ -613,3 +618,20 @@ def safeEscape(s):
 	esc = esc.replace('\'', '&apos;')
 	return esc
 
+
+
+def tryEncodingError(s):
+	try:
+		print u'-%s-' % s
+	except:
+		print "ERROR"
+
+if __name__ == '__main__':
+	s = "café 空 \xe2\x99\x80"
+	print s
+	print sanitizeStringEncoding(s)
+	print sanitizeStringEncoding(s, "ascii")
+	tryEncodingError(s)
+	tryEncodingError(sanitizeStringEncoding(s))
+	tryEncodingError(sanitizeStringEncoding(s, justDecode=True))
+	tryEncodingError(sanitizeStringEncoding(s, 'ascii'))
