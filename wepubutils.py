@@ -249,6 +249,11 @@ class EpubProcessor:
 
 	def processUrl(self, url, index):
 
+		forcedTitle = None
+		if type(url) is list:
+			forcedTitle = sanitizeStringEncoding(url[1])
+			url = url[0]
+
 		if not url.lower().startswith("http"):
 			if os.path.exists(url):
 				return self.processFilePage(url, index)
@@ -270,7 +275,11 @@ class EpubProcessor:
 		print "   ", "Retrieved from", r["source"]
 
 		readable_article = r["article"]
-		readable_title = r["title"]
+		readable_title = ''
+		if forcedTitle:
+			readable_title = forcedTitle
+		else:
+			readable_title = r["title"]
 		
 		if not readable_article:
 			print "   ", "No content!!!"
