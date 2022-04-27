@@ -327,6 +327,12 @@ class EpubProcessor:
 
 		content = '<html><head></head><body>%s</body>' % content
 
+		title = sanitizeStringEncoding(title)
+		content = sanitizeStringEncoding(content)
+
+		print "   ", "Content size:", len(content)
+		print "   ", "["+title+"]"
+
 		return self.writePage(content, title, index)
 
 
@@ -470,7 +476,15 @@ def retrieveUrl(url, transforms=[], titleTransforms=[], ignoreCache=False, ignor
 	rdbtitle = None
 	source = None
 
+	if os.path.exists(rdbcachefile):
+		with open(rdbcachefile, 'r') as f:
+			temphtml = f.read()
+			if jncapi.OldPartDataContents in temphtml:
+				ignoreReadability = True
+				ignoreCache = True
+
 	if not os.path.exists(rdbcachefile) or not os.path.exists(rdbtcachefile) or ignoreReadability:
+
 		if not os.path.exists(htmlcachefile) or ignoreCache:
 			print "   ", "Getting from network...",
 			sys.stdout.flush()
