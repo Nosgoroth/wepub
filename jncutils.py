@@ -742,6 +742,7 @@ def volumeNameToConfigFileName(name):
 def volumeNameToEpubFilename(name):
 	n = re.sub(r'[^\d\w\.\s\_\-\,\!]', "_", name)
 	n = re.sub(r'_+', '_', n)
+	n = wepubutils.trimFilename(n)
 	return n
 
 

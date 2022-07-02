@@ -28,14 +28,14 @@ class ConfigFile:
 		#self.read(verbose=False)
 
 	def existsAsWepubdl(self):
-		wepubdlpath = os.path.join("configs", "%s.wepubdl" % self.config)
+		wepubdlpath = os.path.join("configs", "%s.wepubdl" % trimFilename(self.config))
 		return os.path.exists(wepubdlpath)
 
 	def read(self, verbose=True):
 		if self.readcache is not None:
 			return self.readcache
 
-		wepubdlpath = os.path.join("configs", "%s.wepubdl" % self.config)
+		wepubdlpath = os.path.join("configs", "%s.wepubdl" % trimFilename(self.config))
 		if os.path.exists(wepubdlpath):
 			if verbose: print "Using config file", "%s.wepubdl" % self.config
 
@@ -109,15 +109,17 @@ class ConfigFile:
 			if verbose: print "Writing to Python config files not supported"
 			return False
 
-		wepubdlpath = os.path.join("configs", "%s.wepubdl" % self.config)
+		cfgname = trimFilename(self.config)
+
+		wepubdlpath = os.path.join("configs", "%s.wepubdl" % cfgname)
 		
-		if verbose: print "Using config file", "%s.wepubdl" % self.config
+		if verbose: print "Using config file", "%s.wepubdl" % cfgname
 
 		try:
 			with open(wepubdlpath, "w") as f:
 				json.dump(options, f, sort_keys=True, indent=4, separators=(',', ': '))
 		except IOError:
-			if verbose: print "Couldn't write to config:", self.config
+			if verbose: print "Couldn't write to config:", cfgname
 			return False
 
 		self.clearReadCache()
@@ -620,7 +622,13 @@ class EpubZipFile(zipfile.ZipFile):
 		zipinfo.compress_type = compress
 		zipfile.ZipFile.writestr(self, zipinfo, s)
 
-
+def trimFilename(filename, maxLength=120, charsFromEnd=12, hexLength=4):
+	if len(filename) <= maxLength:
+		return filename
+	import hashlib
+	return filename[0:maxLength-charsFromEnd-hexLength-4] + '__' + \
+		filename[-1*charsFromEnd:] + '__' + \
+		hashlib.sha1(filename).hexdigest()[0:hexLength]
 
 def sanitizeStringEncoding(s, encoding='utf-8', justDecode=False):
 	try: s = s.decode(encoding, errors="replace")
